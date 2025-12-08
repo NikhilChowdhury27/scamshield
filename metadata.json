@@ -1,7 +1,0 @@
-{
-  "name": "ScamShield",
-  "description": "An AI-powered assistant designed to help elderly users identify and prevent fraud by analyzing messages, images, and audio.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}
