@@ -67,7 +67,7 @@ Automatically searches the web for known scam patterns using Gemini's Google Sea
 
 ## 📁 Project Structure
 
-```
+```text
 scamshield/
 ├── App.tsx                 # Main application component
 ├── index.tsx               # Entry point
@@ -116,6 +116,36 @@ ScamShield addresses a critical social need by:
 - Empowering elderly users with AI-powered protection
 - Reducing the emotional toll of fraud on families
 - Making advanced AI technology accessible to non-technical users
+
+## 🚀 Setup & Deployment
+
+### For AI Studio (Recommended)
+
+This app is designed to run in **Google AI Studio**, which automatically handles API key injection and provides the required environment.
+
+1. Import this repository into AI Studio
+2. AI Studio will automatically inject the Gemini API key as `process.env.API_KEY`
+3. Click "Share" to generate a public app link
+
+### For Local Development
+
+```bash
+git clone https://github.com/NikhilChowdhury27/scamshield.git
+cd scamshield
+npm install
+```
+
+Create a `.env` file:
+```bash
+GEMINI_API_KEY=your_api_key_here
+```
+
+Run the development server:
+```bash
+npm run dev
+```
+
+**Note**: The API key is used client-side because this app is designed for AI Studio's browser-based environment. In AI Studio, the key is securely injected by the platform and not exposed to end users.
 
 ---
 
