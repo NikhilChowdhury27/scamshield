@@ -1,133 +1,127 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useScamHistory } from '../hooks/useScamHistory';
-import ResultCard from '../components/ResultCard';
-import { ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, ChevronRight, Search } from 'lucide-react';
-import { HistoryItem } from '../types';
+import { Clock, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Search, History } from 'lucide-react';
 
 const HistoryView: React.FC = () => {
   const { history, clearHistory } = useScamHistory();
-  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
-  const [filter, setFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
 
-  const filteredHistory = history.filter(item => {
-    if (filter === 'ALL') return true;
-    return item.analysis.risk_label === filter;
-  });
-
-  const getRiskIcon = (label: string) => {
-    switch (label) {
-      case 'HIGH': return <ShieldAlert className="w-6 h-6 text-red-500" />;
-      case 'MEDIUM': return <ShieldQuestion className="w-6 h-6 text-orange-500" />;
-      case 'LOW': return <ShieldCheck className="w-6 h-6 text-green-500" />;
-      default: return <ShieldQuestion className="w-6 h-6 text-gray-400" />;
+  const getRiskStyles = (level: string) => {
+    switch (level) {
+      case 'HIGH':
+        return {
+          bg: 'bg-red-50 dark:bg-red-900/20',
+          border: 'border-red-200 dark:border-red-800/50',
+          badge: 'bg-red-500 text-white',
+          icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
+        };
+      case 'MEDIUM':
+        return {
+          bg: 'bg-amber-50 dark:bg-amber-900/20',
+          border: 'border-amber-200 dark:border-amber-800/50',
+          badge: 'bg-amber-500 text-white',
+          icon: <ShieldQuestion className="w-5 h-5 text-amber-500" />,
+        };
+      case 'LOW':
+        return {
+          bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+          border: 'border-emerald-200 dark:border-emerald-800/50',
+          badge: 'bg-emerald-500 text-white',
+          icon: <ShieldCheck className="w-5 h-5 text-emerald-500" />,
+        };
+      default:
+        return {
+          bg: 'bg-stone-50 dark:bg-stone-800',
+          border: 'border-stone-200 dark:border-stone-700',
+          badge: 'bg-stone-500 text-white',
+          icon: <ShieldQuestion className="w-5 h-5 text-stone-500" />,
+        };
     }
   };
 
-  if (history.length === 0) {
-      return (
-          <div className="text-center py-20">
-              <div className="bg-gray-100 dark:bg-gray-800 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Search className="w-10 h-10 text-gray-400 dark:text-gray-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">No History Yet</h2>
-              <p className="text-gray-500 dark:text-gray-400 text-lg">Messages you check will appear here.</p>
-          </div>
-      )
-  }
-
-  // Detail View (Right column behavior on mobile handled by simply showing this if selected)
-  if (selectedItem) {
-    return (
-      <div className="animate-fade-in">
-        <button 
-          onClick={() => setSelectedItem(null)}
-          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-6 font-medium text-lg px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors inline-block"
-        >
-          ← Back to List
-        </button>
-        <ResultCard analysis={selectedItem.analysis} timestamp={selectedItem.timestamp} />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 animate-slide-up">
         <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Scam History</h2>
-            <p className="text-lg text-gray-500 dark:text-gray-400">Your recently checked messages.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
+              <History className="w-6 h-6 text-white" />
+            </div>
+            <h2 className="text-3xl font-display font-bold text-txt dark:text-txt-dark">Analysis History</h2>
+          </div>
+          <p className="text-stone-600 dark:text-stone-400">
+            Review your past scam checks
+          </p>
         </div>
-        <button 
-            onClick={() => { if(window.confirm('Clear all history?')) clearHistory() }}
-            className="flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 px-4 py-2 rounded-lg transition-colors"
-        >
+        
+        {history.length > 0 && (
+          <button
+            onClick={clearHistory}
+            className="flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-medium btn-press"
+          >
             <Trash2 className="w-5 h-5" />
             Clear History
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {(['ALL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((f) => (
-            <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-5 py-2 rounded-full font-bold text-sm transition-colors whitespace-nowrap ${
-                    filter === f 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
-                }`}
-            >
-                {f === 'ALL' ? 'All Messages' : `${f} Risk`}
-            </button>
-        ))}
-      </div>
-
-      {/* List */}
-      <div className="grid gap-4">
-        {filteredHistory.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setSelectedItem(item)}
-            className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all text-left flex items-center gap-4 group"
-          >
-            <div className={`p-3 rounded-full flex-shrink-0 ${
-                item.analysis.risk_label === 'HIGH' ? 'bg-red-50 dark:bg-red-900/30' : 
-                item.analysis.risk_label === 'MEDIUM' ? 'bg-orange-50 dark:bg-orange-900/30' : 'bg-green-50 dark:bg-green-900/30'
-            }`}>
-                {getRiskIcon(item.analysis.risk_label)}
-            </div>
-            
-            <div className="flex-grow min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                         item.analysis.risk_label === 'HIGH' ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' : 
-                         item.analysis.risk_label === 'MEDIUM' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200' : 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
-                    }`}>
-                        {item.analysis.risk_label} RISK
-                    </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                        {new Date(item.timestamp).toLocaleDateString()}
-                    </span>
-                </div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg truncate">
-                    {item.analysis.scam_type.replace(/_/g, ' ').toUpperCase()}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 text-base truncate">
-                    {item.analysis.summary_for_elder}
-                </p>
-            </div>
-            
-            <ChevronRight className="w-6 h-6 text-gray-300 dark:text-gray-600 group-hover:text-blue-500" />
           </button>
-        ))}
-        
-        {filteredHistory.length === 0 && (
-            <div className="text-center py-10 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600">
-                <p className="text-gray-500 dark:text-gray-400">No messages found for this filter.</p>
-            </div>
         )}
       </div>
+
+      {/* History List */}
+      {history.length === 0 ? (
+        <div className="text-center py-20 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-stone-100 dark:bg-stone-800 rounded-full mb-6">
+            <Search className="w-10 h-10 text-stone-400 dark:text-stone-500" />
+          </div>
+          <h3 className="text-2xl font-display font-bold text-txt dark:text-txt-dark mb-2">
+            No History Yet
+          </h3>
+          <p className="text-stone-500 dark:text-stone-400 text-lg">
+            Messages you check will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {history.map((item, index) => {
+            const styles = getRiskStyles(item.analysis.risk_label);
+            return (
+              <div
+                key={item.id}
+                className={`p-5 rounded-2xl border-2 ${styles.border} ${styles.bg} transition-all hover-lift animate-slide-up`}
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Risk Icon */}
+                  <div className="p-3 bg-white dark:bg-stone-800 rounded-xl shadow-sm">
+                    {styles.icon}
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="flex-grow min-w-0">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-bold ${styles.badge}`}>
+                        {item.analysis.risk_label} RISK
+                      </span>
+                      <span className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400 text-sm">
+                        <Clock className="w-4 h-4" />
+                        {new Date(item.timestamp).toLocaleDateString()} at {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    </div>
+                    
+                    <p className="text-txt dark:text-txt-dark font-medium text-lg line-clamp-2">
+                      {item.analysis.summary_for_elder}
+                    </p>
+                    
+                    {item.analysis.scam_type && (
+                      <p className="text-stone-500 dark:text-stone-400 text-sm mt-2">
+                        Type: <span className="font-medium">{item.analysis.scam_type}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

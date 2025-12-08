@@ -44,7 +44,7 @@ export interface ScamAnalysis {
   regulatory_reporting_suggestions: RegulatoryReportingSuggestion[];
   input_interpretation: InputInterpretation;
   disclaimer_for_elder: string;
-  transcription?: string; // Added for audio analysis
+  transcription?: string;
   analysis_notes_for_developers?: string;
 }
 
@@ -62,7 +62,7 @@ export interface HistoryItem {
   id: string;
   timestamp: number;
   analysis: ScamAnalysis;
-  searchResult?: string; // Add search result to history
+  searchResult?: string;
 }
 
 export interface ChatMessage {
@@ -74,3 +74,4 @@ export interface SearchVerificationResult {
     text: string;
     sources: { uri: string; title: string }[];
 }
+

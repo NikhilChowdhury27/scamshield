@@ -48,7 +48,7 @@ const App: React.FC = () => {
   return (
     <LayoutShell 
       currentView={currentView} 
-      onNavigate={(view) => setCurrentView(view)}
+      onNavigate={(view) => setCurrentView(view as ViewType)}
       fontSize={fontSize}
     >
       {renderView()}
@@ -57,3 +57,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

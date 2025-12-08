@@ -4,48 +4,208 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScamShield</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              // Custom semantic colors based on requirements
+              // Light mode colors - warm cream tones
               canvas: {
-                DEFAULT: '#F5F7FA', // Light Mode Background
-                dark: '#0F0F1A'     // Dark Mode Background
+                DEFAULT: '#FDFBF7',
+                dark: '#0C0A09'
               },
               surface: {
-                DEFAULT: '#FFFFFF', // Light Mode Cards
-                dark: '#1A1A2E'     // Dark Mode Cards
+                DEFAULT: '#FFFFFF',
+                dark: '#1C1917'
               },
               border: {
-                DEFAULT: '#E2E8F0', // Light Mode Borders
-                dark: '#2D2D3A'     // Dark Mode Borders
+                DEFAULT: '#E7E5E4',
+                dark: '#292524'
               },
               txt: {
-                DEFAULT: '#1A1A2E', // Light Mode Text
-                dark: '#FFFFFF'     // Dark Mode Text
+                DEFAULT: '#1C1917',
+                dark: '#FAFAF9'
               },
-              // Standard blue for accent is handled by 'blue-600' etc, but we can ensure consistency
-              primary: '#3B82F6'
+              // Accent colors - warm amber/orange
+              accent: {
+                DEFAULT: '#F97316',
+                light: '#FFEDD5',
+                dark: '#EA580C'
+              },
+              // Risk colors
+              danger: {
+                DEFAULT: '#DC2626',
+                light: '#FEF2F2',
+                dark: '#991B1B'
+              },
+              warning: {
+                DEFAULT: '#D97706',
+                light: '#FFFBEB',
+                dark: '#92400E'
+              },
+              safe: {
+                DEFAULT: '#059669',
+                light: '#ECFDF5',
+                dark: '#065F46'
+              }
+            },
+            fontFamily: {
+              'display': ['Playfair Display', 'serif'],
+              'body': ['DM Sans', 'sans-serif']
+            },
+            animation: {
+              'float': 'float 6s ease-in-out infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'slide-up': 'slideUp 0.5s ease-out',
+              'slide-in': 'slideIn 0.3s ease-out',
+              'fade-in': 'fadeIn 0.4s ease-out',
+              'scale-in': 'scaleIn 0.3s ease-out',
+              'shimmer': 'shimmer 2s linear infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              slideIn: {
+                '0%': { opacity: '0', transform: 'translateX(-10px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              scaleIn: {
+                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '-200% 0' },
+                '100%': { backgroundPosition: '200% 0' },
+              }
+            },
+            backgroundImage: {
+              'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+              'noise': "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
             }
           }
         }
       }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
     <style>
-      body {
-        font-family: 'Inter', sans-serif;
+      * {
+        font-family: 'DM Sans', sans-serif;
       }
-      /* Smooth theme transition for all relevant properties */
+      
+      h1, h2, h3, .font-display {
+        font-family: 'Playfair Display', serif;
+      }
+      
+      /* Smooth transitions */
       *, *::before, *::after {
-        transition-property: background-color, border-color, color, fill, stroke;
+        transition-property: background-color, border-color, color, fill, stroke, opacity, transform;
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        transition-duration: 300ms;
+        transition-duration: 200ms;
       }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #D6D3D1;
+        border-radius: 4px;
+      }
+      
+      .dark ::-webkit-scrollbar-thumb {
+        background: #44403C;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #A8A29E;
+      }
+      
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #57534E;
+      }
+      
+      /* Gradient text */
+      .gradient-text {
+        background: linear-gradient(135deg, #F97316 0%, #DC2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      /* Glass effect */
+      .glass {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      
+      /* Noise overlay */
+      .noise-overlay::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        pointer-events: none;
+      }
+      
+      /* Animated gradient border */
+      .gradient-border {
+        position: relative;
+        background: linear-gradient(white, white) padding-box,
+                    linear-gradient(135deg, #F97316, #DC2626, #F97316) border-box;
+        border: 2px solid transparent;
+      }
+      
+      .dark .gradient-border {
+        background: linear-gradient(#1C1917, #1C1917) padding-box,
+                    linear-gradient(135deg, #F97316, #DC2626, #F97316) border-box;
+      }
+      
+      /* Hover lift effect */
+      .hover-lift {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      
+      .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+      }
+      
+      .dark .hover-lift:hover {
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.4);
+      }
+      
+      /* Button press effect */
+      .btn-press:active {
+        transform: scale(0.98);
+      }
+      
+      /* Staggered animation delays */
+      .stagger-1 { animation-delay: 0.1s; }
+      .stagger-2 { animation-delay: 0.2s; }
+      .stagger-3 { animation-delay: 0.3s; }
+      .stagger-4 { animation-delay: 0.4s; }
+      .stagger-5 { animation-delay: 0.5s; }
     </style>
   <script type="importmap">
 {
@@ -60,7 +220,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

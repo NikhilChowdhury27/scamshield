@@ -4,7 +4,7 @@ import { analyzeContent, verifyScamWithSearch } from '../services/geminiService'
 import ResultCard from '../components/ResultCard';
 import FollowUpChat from '../components/FollowUpChat';
 import { useScamHistory } from '../hooks/useScamHistory';
-import { Mic, Image as ImageIcon, Loader2, Trash2, X, Activity, AlignLeft } from 'lucide-react';
+import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield, Waves } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
 
@@ -40,6 +40,9 @@ const CheckMessageView: React.FC = () => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileInput[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Active input mode
+  const [activeMode, setActiveMode] = useState<'text' | 'image' | null>(null);
   
   // Audio Recording state
   const [isRecordingMode, setIsRecordingMode] = useState(false);
@@ -113,11 +116,18 @@ const CheckMessageView: React.FC = () => {
         type: file.type.startsWith('audio') ? 'audio' : 'image',
       }));
       setFiles((prev) => [...prev, ...newFiles]);
+      setActiveMode('image');
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const newFiles = prev.filter((_, i) => i !== index);
+      if (newFiles.length === 0 && !text) {
+        setActiveMode(null);
+      }
+      return newFiles;
+    });
   };
 
   const formatTime = (seconds: number) => {
@@ -159,8 +169,9 @@ const CheckMessageView: React.FC = () => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     
-    const colorBottom = new THREE.Color(0x240046); 
-    const colorTop = new THREE.Color(0xff006e);    
+    // Warm orange to red gradient
+    const colorBottom = new THREE.Color(0xF97316); 
+    const colorTop = new THREE.Color(0xDC2626);    
 
     const radius = 1.5;
 
@@ -218,7 +229,7 @@ const CheckMessageView: React.FC = () => {
     sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
 
     const sparkMat = new THREE.PointsMaterial({
-        color: 0x00ffff,
+        color: 0xFCD34D,
         size: 0.015,
         transparent: true,
         opacity: 0.0,
@@ -485,16 +496,20 @@ const CheckMessageView: React.FC = () => {
     setError(null);
     setLiveTranscript('');
     setIsRecordingMode(false);
+    setActiveMode(null);
   };
+
+  const hasContent = text.trim() || files.length > 0;
 
   if (analysis) {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-slide-up">
         <button 
           onClick={handleReset}
-          className="flex items-center gap-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors font-medium text-lg"
+          className="flex items-center gap-2 text-stone-500 hover:text-orange-600 dark:text-stone-400 dark:hover:text-orange-400 transition-colors font-medium group"
         >
-          ← Check Another Message
+          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          Check Another Message
         </button>
         <ResultCard analysis={analysis} searchResult={searchResult} timestamp={Date.now()} />
         <FollowUpChat analysis={analysis} />
@@ -504,36 +519,74 @@ const CheckMessageView: React.FC = () => {
 
   if (isRecordingMode) {
       return (
-          <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-4 animate-fade-in">
-              <div className="w-full max-w-lg space-y-6 text-center flex flex-col h-full max-h-[90vh]">
-                  <div className="flex-shrink-0 space-y-2 mt-4">
-                      <h2 className="text-2xl font-medium text-white/90">Go ahead, I'm listening</h2>
+          <div className="fixed inset-0 z-50 bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950 flex flex-col items-center justify-center p-4 animate-fade-in">
+              {/* Ambient glow */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse-slow" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+              </div>
+              
+              <div className="w-full max-w-2xl space-y-6 text-center flex flex-col h-full max-h-[90vh] relative z-10">
+                  {/* Header */}
+                  <div className="flex-shrink-0 space-y-3 mt-4">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-full text-sm font-medium border border-red-500/30">
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                        Recording in Progress
+                      </div>
+                      <h2 className="text-3xl font-display font-bold text-white">
+                        Listening to the call...
+                      </h2>
+                      <p className="text-stone-400">Put your phone on speaker. I'm transcribing everything.</p>
                   </div>
-                  <div className="relative h-80 w-full flex items-center justify-center flex-shrink-0">
+                  
+                  {/* Visualizer */}
+                  <div className="relative h-72 w-full flex items-center justify-center flex-shrink-0">
                       <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
-                      <div className="absolute z-20 font-mono text-xl text-white/50 bottom-0">
-                          {formatTime(recordingDuration)}
+                      <div className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2">
+                        <div className="px-6 py-3 bg-stone-900/80 backdrop-blur-sm rounded-2xl border border-stone-700">
+                          <span className="font-mono text-2xl text-white font-medium tracking-wider">
+                            {formatTime(recordingDuration)}
+                          </span>
+                        </div>
                       </div>
                   </div>
-                  <div className="flex-grow bg-slate-900/50 rounded-3xl border border-slate-800 p-6 text-left overflow-hidden flex flex-col w-full shadow-inner backdrop-blur-sm">
-                      <div className="flex-grow overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-700" ref={transcriptBoxRef}>
+                  
+                  {/* Transcript Box */}
+                  <div className="flex-grow bg-stone-900/60 backdrop-blur-sm rounded-3xl border border-stone-700/50 p-6 text-left overflow-hidden flex flex-col w-full shadow-2xl">
+                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-stone-700/50">
+                        <Waves className="w-5 h-5 text-orange-400" />
+                        <span className="text-sm font-medium text-stone-400 uppercase tracking-wider">Live Transcript</span>
+                      </div>
+                      <div className="flex-grow overflow-y-auto space-y-3 pr-2" ref={transcriptBoxRef}>
                           {liveTranscript ? (
-                              <p className="whitespace-pre-wrap text-lg text-slate-200 leading-relaxed font-light">{liveTranscript}</p>
+                              <p className="whitespace-pre-wrap text-lg text-stone-200 leading-relaxed">{liveTranscript}</p>
                           ) : (
                               <div className="flex h-full items-center justify-center gap-3">
-                                  <Loader2 className="w-5 h-5 text-slate-500 animate-spin" />
-                                  <p className="text-slate-500 italic">Listening for speech...</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                  </div>
+                                  <p className="text-stone-500">Waiting for speech...</p>
                               </div>
                           )}
                       </div>
                   </div>
+                  
+                  {/* Action Buttons */}
                   <div className="flex items-center gap-4 w-full flex-shrink-0 pb-4">
-                      <button onClick={cancelRecording} className="p-4 rounded-full bg-slate-800 text-white hover:bg-slate-700 transition-all flex-shrink-0">
+                      <button 
+                        onClick={cancelRecording} 
+                        className="p-4 rounded-2xl bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-white transition-all flex-shrink-0 border border-stone-700"
+                      >
                           <X className="w-6 h-6" />
                       </button>
-                      <button onClick={stopAndAnalyze} className="flex-grow py-4 rounded-full bg-white text-slate-900 font-bold text-lg hover:bg-slate-200 transition-all shadow-lg transform hover:scale-[1.01] flex items-center justify-center gap-2">
-                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                          Stop & Analyze
+                      <button 
+                        onClick={stopAndAnalyze} 
+                        className="flex-grow py-5 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-lg hover:from-orange-600 hover:to-red-600 transition-all shadow-xl shadow-orange-500/25 transform hover:scale-[1.02] flex items-center justify-center gap-3 btn-press"
+                      >
+                          <Shield className="w-6 h-6" />
+                          Stop & Analyze for Scams
                       </button>
                   </div>
               </div>
@@ -542,146 +595,314 @@ const CheckMessageView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
-      <div className="text-center mb-10">
-        <h2 className="text-3xl md:text-4xl font-extrabold text-txt dark:text-txt-dark mb-4 tracking-tight">
-          Not sure if it's safe?
-        </h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl mx-auto">
-          Paste the message or monitor a call. We'll help you check if it looks like a scam.
+    <div className="space-y-8">
+      {/* Hero Section */}
+      <div className="text-center animate-slide-up">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-semibold mb-6 border border-orange-200/50 dark:border-orange-700/30">
+          <Shield className="w-4 h-4" />
+          Scam Detection
+        </div>
+        <h1 className="text-4xl md:text-5xl font-display font-bold text-txt dark:text-txt-dark mb-4 tracking-tight leading-tight">
+          Is this message <br className="md:hidden" />
+          <span className="gradient-text">a scam?</span>
+        </h1>
+        <p className="text-lg text-stone-600 dark:text-stone-400 leading-relaxed max-w-xl mx-auto">
+          Share what you received and I'll analyze it for warning signs. Your safety is my priority.
         </p>
       </div>
 
-      <div className="bg-surface dark:bg-surface-dark rounded-3xl shadow-lg border border-border dark:border-border-dark overflow-hidden transition-colors">
-        <div className="bg-blue-600 px-6 py-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                1. Share the details
-            </h3>
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl shadow-sm animate-scale-in">
+          <p className="font-bold flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+            Error
+          </p>
+          <p className="mt-1 text-red-600 dark:text-red-400">{error}</p>
         </div>
+      )}
+
+      {/* Main Input Section */}
+      <div className="space-y-6 animate-slide-up stagger-1">
         
-        <div className="p-6 md:p-8 space-y-8">
-          {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 text-red-700 dark:text-red-300 rounded shadow-sm">
-               <p className="font-bold">Notice</p>
-               <p>{error}</p>
+        {/* Live Call Monitor - Featured Card */}
+        <div className="relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-3xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity"></div>
+          <button
+            type="button"
+            onClick={startRecording}
+            className="relative w-full bg-gradient-to-br from-stone-900 to-stone-800 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-8 text-left cursor-pointer overflow-hidden border border-stone-700/50 hover:border-orange-500/50 transition-all btn-press"
+          >
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                backgroundSize: '32px 32px'
+              }}></div>
             </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="w-full relative overflow-hidden group rounded-2xl border-2 border-blue-100 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all p-8 flex flex-col md:flex-row items-center gap-6 text-left cursor-pointer shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700"
-                  >
-                     <div className="w-20 h-20 rounded-full bg-white dark:bg-blue-800 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                        <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center animate-pulse">
-                            <Mic className="w-8 h-8 text-white" />
-                        </div>
-                     </div>
-                     <div className="flex-grow">
-                         <h3 className="text-2xl font-bold text-txt dark:text-txt-dark mb-1">Monitor Live Call</h3>
-                         <p className="text-gray-600 dark:text-gray-300 text-lg">
-                             Put your phone on speaker. We'll show you the text live and analyze for scams.
-                         </p>
-                     </div>
-                     <div className="hidden md:block bg-blue-600 text-white px-6 py-2 rounded-full font-bold">
-                         Start Listening
-                     </div>
-                  </button>
+            
+            {/* Animated waves */}
+            <div className="absolute right-0 top-0 bottom-0 w-1/3 overflow-hidden opacity-20">
+              <div className="absolute inset-0 flex items-center justify-center">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute w-64 h-64 border-2 border-orange-500 rounded-full animate-ping"
+                    style={{ animationDuration: `${2 + i * 0.5}s`, animationDelay: `${i * 0.3}s`, opacity: 0.3 - i * 0.1 }}
+                  ></div>
+                ))}
               </div>
-
-              <div className="space-y-3">
-                 <label htmlFor="message-text" className="block text-lg font-bold text-txt dark:text-txt-dark">
-                   Or paste text
-                 </label>
-                 <textarea
-                    id="message-text"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="e.g. 'I'm your grandson, send money...'"
-                    className="w-full h-40 p-4 text-lg bg-canvas dark:bg-canvas-dark text-txt dark:text-txt-dark border-2 border-border dark:border-border-dark rounded-2xl focus:border-blue-500 focus:bg-surface dark:focus:bg-surface-dark focus:ring-0 resize-none transition-colors placeholder-gray-400 dark:placeholder-gray-600"
-                  />
+            </div>
+            
+            <div className="relative flex items-center gap-6">
+              {/* Icon */}
+              <div className="relative flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl blur-xl opacity-50"></div>
+                <div className="relative w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Mic className="w-10 h-10 text-white" strokeWidth={1.5} />
+                </div>
               </div>
-
-              <div className="space-y-3">
-                 <label className="block text-lg font-bold text-txt dark:text-txt-dark">
-                    Upload Screenshot
-                 </label>
-                 <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-40 border-2 border-dashed border-border dark:border-border-dark rounded-2xl hover:bg-canvas dark:hover:bg-gray-700/50 hover:border-gray-400 dark:hover:border-gray-500 transition-all flex flex-col items-center justify-center gap-2 group cursor-pointer bg-surface dark:bg-surface-dark"
-                  >
-                    <ImageIcon className="w-8 h-8 text-gray-400 dark:text-gray-500 group-hover:text-blue-500" />
-                    <span className="text-gray-500 dark:text-gray-400 font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400">Select Image File</span>
-                 </button>
+              
+              {/* Content */}
+              <div className="flex-grow">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-md uppercase tracking-wider">
+                    Live
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-md uppercase tracking-wider">
+                    Recommended
+                  </span>
+                </div>
+                <h3 className="text-2xl font-display font-bold text-white mb-1">
+                  Monitor a Phone Call
+                </h3>
+                <p className="text-stone-400 text-base">
+                  Put your phone on speaker. I'll listen, transcribe, and analyze in real-time.
+                </p>
               </div>
-          </div>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*,audio/*"
-            multiple
-            className="hidden"
-          />
-
-          {files.length > 0 && (
-              <div className="flex flex-col gap-2 bg-canvas dark:bg-gray-700/30 p-4 rounded-xl border border-border dark:border-border-dark">
-                  <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Attached Files</p>
-                  {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-surface dark:bg-surface-dark rounded-lg border border-border dark:border-border-dark shadow-sm">
-                          <span className="text-sm font-medium truncate max-w-[200px] text-txt dark:text-txt-dark">{file.file.name}</span>
-                          <button onClick={() => removeFile(index)} className="text-red-400 hover:text-red-600">
-                              <Trash2 className="w-4 h-4" />
-                          </button>
-                      </div>
-                  ))}
+              
+              {/* Arrow */}
+              <div className="hidden md:flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
+                <ChevronRight className="w-6 h-6 text-white" />
               </div>
-          )}
-
-          <div className="pt-4 border-t border-border dark:border-border-dark">
-            <button
-                onClick={handleAnalyzeForm}
-                disabled={isLoading || (!text && files.length === 0)}
-                className={`w-full py-4 rounded-xl text-xl font-bold shadow-sm transition-all ${
-                isLoading || (!text && files.length === 0)
-                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                    : 'bg-primary dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-500 text-white transform hover:scale-[1.01]'
-                }`}
-            >
-                {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                    <Loader2 className="animate-spin h-6 w-6" />
-                    Analyzing...
-                </span>
-                ) : (
-                'Analyze Text / File'
-                )}
-            </button>
-          </div>
+            </div>
+          </button>
         </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-4 py-2">
+          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
+          <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or share content directly</span>
+          <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
+        </div>
+
+        {/* Input Mode Selector */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Text Input Card */}
+          <button
+            type="button"
+            onClick={() => setActiveMode('text')}
+            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${
+              activeMode === 'text'
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
+                : 'border-stone-200 dark:border-stone-700 bg-surface dark:bg-surface-dark hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md'
+            }`}
+          >
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${
+              activeMode === 'text'
+                ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
+            }`}>
+              <FileText className="w-7 h-7" strokeWidth={1.5} />
+            </div>
+            <h4 className={`text-lg font-bold mb-1 ${
+              activeMode === 'text' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
+            }`}>
+              Paste Text
+            </h4>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Copy and paste the suspicious message
+            </p>
+            {activeMode === 'text' && (
+              <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full"></div>
+            )}
+          </button>
+
+          {/* Image Upload Card */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMode('image');
+              fileInputRef.current?.click();
+            }}
+            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${
+              activeMode === 'image'
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
+                : 'border-stone-200 dark:border-stone-700 bg-surface dark:bg-surface-dark hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md'
+            }`}
+          >
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${
+              activeMode === 'image'
+                ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
+            }`}>
+              <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
+            </div>
+            <h4 className={`text-lg font-bold mb-1 ${
+              activeMode === 'image' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
+            }`}>
+              Upload Screenshot
+            </h4>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Share an image of the message
+            </p>
+            {activeMode === 'image' && files.length > 0 && (
+              <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">{files.length}</span>
+              </div>
+            )}
+          </button>
+        </div>
+
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*,audio/*"
+          multiple
+          className="hidden"
+        />
+
+        {/* Expanded Input Area */}
+        {activeMode && (
+          <div className="animate-scale-in">
+            {activeMode === 'text' && (
+              <div className="bg-surface dark:bg-surface-dark rounded-2xl border border-border dark:border-border-dark p-1 shadow-lg">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Paste the suspicious message here...
+
+Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell mom and dad. Send it to this account...'"
+                  className="w-full h-48 p-5 text-lg bg-transparent text-txt dark:text-txt-dark focus:outline-none resize-none placeholder-stone-400 dark:placeholder-stone-600"
+                  autoFocus
+                />
+                <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 dark:border-stone-800">
+                  <span className="text-sm text-stone-400">
+                    {text.length > 0 ? `${text.length} characters` : 'Type or paste your message'}
+                  </span>
+                  {text && (
+                    <button
+                      onClick={() => setText('')}
+                      className="text-sm text-stone-400 hover:text-red-500 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeMode === 'image' && (
+              <div className="bg-surface dark:bg-surface-dark rounded-2xl border border-border dark:border-border-dark p-6 shadow-lg">
+                {files.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {files.map((file, index) => (
+                        <div key={index} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                          {file.type === 'image' ? (
+                            <img
+                              src={file.previewUrl}
+                              alt={file.file.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Mic className="w-12 h-12 text-stone-400" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              onClick={() => removeFile(index)}
+                              className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                            <p className="text-white text-xs truncate">{file.file.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Add More Button */}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="aspect-square rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 hover:border-orange-400 dark:hover:border-orange-500 flex flex-col items-center justify-center gap-2 transition-colors group"
+                      >
+                        <Upload className="w-8 h-8 text-stone-400 group-hover:text-orange-500 transition-colors" />
+                        <span className="text-sm text-stone-400 group-hover:text-orange-500 transition-colors">Add more</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-48 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl hover:border-orange-400 dark:hover:border-orange-500 flex flex-col items-center justify-center gap-3 transition-all group"
+                  >
+                    <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-xl group-hover:bg-orange-100 dark:group-hover:bg-orange-900/30 transition-colors">
+                      <Upload className="w-8 h-8 text-stone-400 group-hover:text-orange-500 transition-colors" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-stone-600 dark:text-stone-300 font-medium">Click to upload or drag and drop</p>
+                      <p className="text-sm text-stone-400">PNG, JPG, GIF up to 10MB</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Analyze Button */}
+        <button
+          onClick={handleAnalyzeForm}
+          disabled={isLoading || !hasContent}
+          className={`w-full py-5 rounded-2xl text-xl font-bold transition-all btn-press relative overflow-hidden ${
+            isLoading || !hasContent
+              ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
+              : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
+          }`}
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-3">
+              <Loader2 className="animate-spin h-6 w-6" />
+              Analyzing for scams...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-3">
+              <Shield className="w-6 h-6" />
+              {hasContent ? 'Analyze Now' : 'Add content to analyze'}
+            </span>
+          )}
+        </button>
       </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center text-gray-500 dark:text-gray-400 pt-8">
-            <div className="p-4 bg-surface dark:bg-surface-dark rounded-xl border border-border dark:border-border-dark">
-                <span className="block text-3xl mb-2">🔒</span>
-                <h3 className="font-bold text-gray-700 dark:text-gray-300">Private</h3>
-                <p className="text-sm">We don't keep your data.</p>
-            </div>
-            <div className="p-4 bg-surface dark:bg-surface-dark rounded-xl border border-border dark:border-border-dark">
-                <span className="block text-3xl mb-2">⚡</span>
-                <h3 className="font-bold text-gray-700 dark:text-gray-300">Fast</h3>
-                <p className="text-sm">Answers in seconds.</p>
-            </div>
-            <div className="p-4 bg-surface dark:bg-surface-dark rounded-xl border border-border dark:border-border-dark">
-                <span className="block text-3xl mb-2">👵</span>
-                <h3 className="font-bold text-gray-700 dark:text-gray-300">Simple</h3>
-                <p className="text-sm">No confusing tech words.</p>
-            </div>
-        </div>
+      {/* Trust Indicators */}
+      <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2">
+        {[
+          { icon: Lock, label: 'Private', desc: 'Data stays with you', color: 'emerald' },
+          { icon: Zap, label: 'Instant', desc: 'Results in seconds', color: 'amber' },
+          { icon: Heart, label: 'Caring', desc: 'Built for elders', color: 'rose' },
+        ].map((item, i) => (
+          <div key={i} className="text-center p-4 rounded-2xl bg-surface/50 dark:bg-surface-dark/50 border border-border/50 dark:border-border-dark/50">
+            <item.icon className={`w-6 h-6 mx-auto mb-2 text-${item.color}-500`} />
+            <p className="font-bold text-sm text-txt dark:text-txt-dark">{item.label}</p>
+            <p className="text-xs text-stone-400">{item.desc}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

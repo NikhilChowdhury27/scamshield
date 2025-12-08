@@ -189,3 +189,4 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
       reader.onerror = (error) => reject(error);
     });
   };
+

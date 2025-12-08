@@ -155,3 +155,4 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
 };
 
 export default InputSection;
+

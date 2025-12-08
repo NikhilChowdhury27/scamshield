@@ -1,231 +1,216 @@
 import React from 'react';
-import { Chrome, Download, CheckCircle, ArrowRight, Shield } from 'lucide-react';
+import { Chrome, Download, CheckCircle2, Mail, Shield, Sparkles } from 'lucide-react';
 
 const ExtensionPromoView: React.FC = () => {
-  
-  const handleDownload = (filename: string, content: string) => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadAll = () => {
-    // 1. Manifest
-    const manifestCode = `{
-  "manifest_version": 3,
-  "name": "ScamShield",
-  "version": "1.0",
-  "description": "Analyze emails for scams directly in Gmail.",
-  "permissions": ["sidePanel"],
-  "host_permissions": ["https://mail.google.com/*"],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://mail.google.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
-  "action": {
-    "default_title": "Open ScamShield"
-  }
-}`;
-
-    // 2. Background Script
-    const backgroundCode = `
-// Allows opening the side panel when the action icon is clicked
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message.action === 'open_side_panel') {
-    // Open the side panel for the current window
-    chrome.sidePanel.open({ windowId: sender.tab.windowId });
-  }
-});
-`;
-
-    // 3. Content Script
-    // NOTE: In a real app, you would verify the deployed URL. 
-    // Here we assume localhost or the current origin with ?mode=extension
-    const currentOrigin = window.location.origin;
-    const contentScriptCode = `
-// Identify Gmail toolbar to inject button
-function injectButton() {
-  // Gmail selectors are messy, we look for the generic action bar in an open email
-  const toolbar = document.querySelector('.G-tF'); // Common toolbar class
-  const existingBtn = document.getElementById('scam-shield-btn');
-
-  if (toolbar && !existingBtn) {
-    const btn = document.createElement('div');
-    btn.id = 'scam-shield-btn';
-    btn.innerHTML = '🛡️ Analyze Scam';
-    btn.style.cssText = 'background: #2563eb; color: white; padding: 0 16px; height: 36px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; margin-left: 10px; font-family: Google Sans, Roboto, sans-serif; font-size: 14px;';
-    
-    btn.onclick = () => {
-      // Send message to background to open side panel
-      // For the side panel content, chrome extensions use the manifest "side_panel" key
-      // But we need to configure it to point to our web app URL.
-      // Since manifest side_panel usually points to a local HTML, 
-      // we will use an iframe in that local HTML or just redirect.
-      // For this demo, we assume the user configured the manifest to point to:
-      // ${currentOrigin}?mode=extension
-      alert("Please ensure the side_panel in manifest.json points to ${currentOrigin}?mode=extension");
+  const handleDownload = () => {
+    // Create extension files as downloadable content
+    const manifestJson = {
+      manifest_version: 3,
+      name: "ScamShield for Gmail",
+      version: "1.0",
+      description: "Protect yourself from email scams directly in Gmail",
+      permissions: ["sidePanel", "activeTab"],
+      side_panel: { default_path: "sidepanel.html" },
+      action: { default_title: "Open ScamShield" },
+      background: { service_worker: "background.js" },
+      content_scripts: [{ matches: ["https://mail.google.com/*"], js: ["content.js"] }]
     };
-    
-    toolbar.appendChild(btn);
-  }
-}
 
-// Observe DOM for changes (Gmail is a SPA)
-const observer = new MutationObserver(injectButton);
-observer.observe(document.body, { childList: true, subtree: true });
-`;
+    const backgroundJs = `
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ tabId: tab.id });
+});
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+    `.trim();
 
-    // 4. Side Panel HTML (The glue)
-    const sidePanelHtml = `<!DOCTYPE html>
+    const contentJs = `
+console.log('ScamShield content script loaded for Gmail');
+    `.trim();
+
+    const sidepanelHtml = `
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>ScamShield</title>
-    <style>body { margin: 0; padding: 0; height: 100vh; overflow: hidden; }</style>
-  </head>
-  <body>
-    <iframe src="${currentOrigin}?mode=extension" style="width:100%; height:100%; border:none;"></iframe>
-  </body>
-</html>`;
+<head>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; }
+    iframe { width: 100%; height: 100vh; border: none; }
+  </style>
+</head>
+<body>
+  <iframe src="${window.location.origin}?mode=extension"></iframe>
+</body>
+</html>
+    `.trim();
 
-    // Download them
-    handleDownload('manifest.json', manifestCode.replace('"default_path": "sidepanel.html"', '"default_path": "sidepanel.html"').replace('"side_panel": {}', `"side_panel": { "default_path": "sidepanel.html" }`));
-    setTimeout(() => handleDownload('background.js', backgroundCode), 200);
-    setTimeout(() => handleDownload('content.js', contentScriptCode), 400);
-    setTimeout(() => handleDownload('sidepanel.html', sidePanelHtml), 600);
+    const files = [
+      { name: 'manifest.json', content: JSON.stringify(manifestJson, null, 2), type: 'application/json' },
+      { name: 'background.js', content: backgroundJs, type: 'text/javascript' },
+      { name: 'content.js', content: contentJs, type: 'text/javascript' },
+      { name: 'sidepanel.html', content: sidepanelHtml, type: 'text/html' },
+    ];
+
+    files.forEach(file => {
+      const blob = new Blob([file.content], { type: file.type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
   };
+
+  const steps = [
+    { num: 1, text: 'Create a new folder on your computer named "ScamShield-Ext" and move the 4 downloaded files into it.' },
+    { num: 2, text: 'Open Chrome and go to chrome://extensions' },
+    { num: 3, text: 'Enable "Developer mode" in the top right corner.' },
+    { num: 4, text: 'Click "Load unpacked" and select your ScamShield-Ext folder.' },
+  ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="text-center md:text-left">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Add ScamShield to Gmail</h2>
-        <p className="text-xl text-gray-600 dark:text-gray-300 mt-2">Get real-time protection directly in your inbox.</p>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center animate-slide-up">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mb-4">
+          <Chrome className="w-4 h-4" />
+          Browser Extension
+        </div>
+        <h2 className="text-4xl font-display font-bold text-txt dark:text-txt-dark tracking-tight mb-3">
+          Add ScamShield to <span className="gradient-text">Gmail</span>
+        </h2>
+        <p className="text-xl text-stone-600 dark:text-stone-300">
+          Get real-time protection directly in your inbox.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Preview Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden flex flex-col transition-colors">
-           <div className="bg-gray-100 dark:bg-gray-900 p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <div className="w-3 h-3 rounded-full bg-green-400"></div>
-              <div className="ml-4 bg-white dark:bg-gray-800 px-3 py-1 rounded-md text-xs text-gray-500 dark:text-gray-400 flex-grow text-center">
-                 mail.google.com
-              </div>
-           </div>
-           <div className="p-6 bg-gray-50 dark:bg-gray-900/50 flex-grow relative min-h-[300px]">
-              {/* Mock Gmail Interface */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 space-y-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-start">
-                      <div>
-                          <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">URGENT: Verify your account</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Service Support &lt;support@fake-bank.com&gt;</p>
-                      </div>
-                      <div className="text-sm text-gray-400">10:42 AM</div>
+      {/* Preview Card */}
+      <div className="grid md:grid-cols-2 gap-6 animate-slide-up stagger-1">
+        {/* Gmail Preview */}
+        <div className="bg-stone-900 rounded-3xl overflow-hidden shadow-2xl">
+          {/* Browser Chrome */}
+          <div className="bg-stone-800 px-4 py-3 flex items-center gap-3">
+            <div className="flex gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <div className="flex-grow bg-stone-700 rounded-full px-4 py-1.5 text-stone-400 text-sm">
+              mail.google.com
+            </div>
+          </div>
+          
+          {/* Gmail Content */}
+          <div className="p-6 flex gap-4">
+            {/* Email Preview */}
+            <div className="flex-grow space-y-4">
+              <div className="bg-stone-800 rounded-2xl p-4 border border-stone-700">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white font-bold">
+                    !
                   </div>
-                  <div className="h-px bg-gray-100 dark:bg-gray-700 my-4"></div>
-                  <div className="space-y-2">
-                      <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4"></div>
-                      <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-1/2"></div>
-                      <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-5/6"></div>
+                  <div className="flex-grow">
+                    <h4 className="text-white font-bold">URGENT: Verify your account</h4>
+                    <p className="text-stone-400 text-sm">Service Support &lt;support@fake-bank.com&gt;</p>
                   </div>
-                  <div className="pt-6 flex gap-3">
-                      <div className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-bold text-sm border border-gray-300 dark:border-gray-600">Reply</div>
-                      <div className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-bold text-sm border border-gray-300 dark:border-gray-600">Forward</div>
-                      
-                      {/* The Feature Button */}
-                      <div className="px-6 py-2 bg-blue-600 text-white rounded-full font-bold text-sm shadow-lg shadow-blue-200 dark:shadow-blue-900/50 flex items-center gap-2 animate-pulse">
-                         <Shield className="w-4 h-4" />
-                         Analyze Scam
-                      </div>
-                  </div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <div className="h-3 bg-stone-700 rounded w-full"></div>
+                  <div className="h-3 bg-stone-700 rounded w-4/5"></div>
+                  <div className="h-3 bg-stone-700 rounded w-3/5"></div>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button className="px-4 py-2 bg-stone-700 text-stone-300 rounded-lg text-sm">Reply</button>
+                  <button className="px-4 py-2 bg-stone-700 text-stone-300 rounded-lg text-sm">Forward</button>
+                </div>
               </div>
-
-              {/* Sidebar Mockup */}
-              <div className="absolute top-0 bottom-0 right-0 w-1/3 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-2xl p-4 transform translate-x-2">
-                 <div className="flex items-center gap-2 mb-4">
-                     <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                     <span className="font-bold text-gray-900 dark:text-white">ScamShield</span>
-                 </div>
-                 <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-100 dark:border-red-900/50 mb-2">
-                     <div className="flex items-center gap-2 text-red-800 dark:text-red-300 font-bold text-sm mb-1">
-                         <Shield className="w-4 h-4" /> HIGH RISK
-                     </div>
-                     <div className="h-2 bg-red-200 dark:bg-red-800 rounded w-3/4 mb-1"></div>
-                     <div className="h-2 bg-red-200 dark:bg-red-800 rounded w-1/2"></div>
-                 </div>
+            </div>
+            
+            {/* ScamShield Sidebar */}
+            <div className="w-48 bg-stone-800 rounded-2xl p-4 border border-stone-700">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-white font-bold text-sm">ScamShield</span>
               </div>
-           </div>
+              <div className="bg-red-900/50 border border-red-700 rounded-xl p-3 text-center">
+                <span className="text-red-400 text-xs font-bold">HIGH</span>
+                <span className="text-red-300 text-xs block">RISK</span>
+                <div className="mt-2 h-1 bg-red-600 rounded-full"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Instructions */}
-        <div className="space-y-6">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/50">
-                <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-2">Developer Preview</h3>
-                <p className="text-blue-800 dark:text-blue-200 text-lg leading-relaxed">
-                    Since this is a demo app, you can install the extension manually to try the sidebar integration.
-                </p>
-                <button 
-                    onClick={downloadAll}
-                    className="mt-4 flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-transform transform hover:scale-105"
-                >
-                    <Download className="w-5 h-5" />
-                    Download Extension Files
-                </button>
-                <p className="text-sm text-blue-600 dark:text-blue-400 mt-2 italic">
-                    Downloads manifest.json, background.js, content.js, and sidepanel.html
-                </p>
+        {/* Download Card */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl p-6 border-2 border-blue-200 dark:border-blue-800/50">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl">
+              <Sparkles className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
+            <div>
+              <h3 className="text-xl font-display font-bold text-txt dark:text-txt-dark">Developer Preview</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">Try the extension manually</p>
+            </div>
+          </div>
+          
+          <p className="text-stone-700 dark:text-stone-300 mb-6">
+            Since this is a demo app, you can install the extension manually to try the sidebar integration.
+          </p>
+          
+          <button
+            onClick={handleDownload}
+            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all btn-press"
+          >
+            <Download className="w-6 h-6" />
+            Download Extension Files
+          </button>
+          
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-3 text-center">
+            Downloads: manifest.json, background.js, content.js, sidepanel.html
+          </p>
+        </div>
+      </div>
 
-            <div className="space-y-4">
-                <h4 className="font-bold text-gray-900 dark:text-white text-lg">How to Install</h4>
-                
-                <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">1</div>
-                    <p className="text-gray-700 dark:text-gray-300 pt-1">
-                        Create a new folder on your computer named <strong>ScamShield-Ext</strong> and move the 4 downloaded files into it.
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">2</div>
-                    <p className="text-gray-700 dark:text-gray-300 pt-1">
-                        Open Chrome and go to <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm">chrome://extensions</code>
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">3</div>
-                    <p className="text-gray-700 dark:text-gray-300 pt-1">
-                        Enable <strong>Developer mode</strong> in the top right corner.
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">4</div>
-                    <p className="text-gray-700 dark:text-gray-300 pt-1">
-                        Click <strong>Load unpacked</strong> and select your <strong>ScamShield-Ext</strong> folder.
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center font-bold text-green-600 dark:text-green-400 flex-shrink-0">
-                        <CheckCircle className="w-5 h-5" />
-                    </div>
-                    <p className="text-gray-700 dark:text-gray-300 pt-1">
-                        Open Gmail. You will see the ScamShield button appear in the toolbar when viewing emails!
-                    </p>
-                </div>
+      {/* Installation Steps */}
+      <div className="bg-surface dark:bg-surface-dark rounded-3xl p-6 md:p-8 border border-border dark:border-border-dark shadow-sm animate-slide-up stagger-2">
+        <h3 className="text-2xl font-display font-bold text-txt dark:text-txt-dark mb-6 flex items-center gap-3">
+          <Mail className="w-7 h-7 text-orange-500" />
+          How to Install
+        </h3>
+        
+        <div className="space-y-4">
+          {steps.map((step, i) => (
+            <div 
+              key={step.num} 
+              className="flex gap-4 items-start group"
+              style={{ animationDelay: `${i * 0.1}s` }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-lg shadow-md group-hover:scale-110 transition-transform">
+                {step.num}
+              </div>
+              <div className="pt-2">
+                <p className="text-lg text-stone-700 dark:text-stone-300">
+                  {step.text}
+                </p>
+                {step.num === 2 && (
+                  <code className="mt-2 inline-block px-3 py-1.5 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm font-mono text-stone-600 dark:text-stone-400">
+                    chrome://extensions
+                  </code>
+                )}
+              </div>
             </div>
+          ))}
+        </div>
+        
+        {/* Success Message */}
+        <div className="mt-8 flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
+          <CheckCircle2 className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+          <p className="text-emerald-700 dark:text-emerald-300">
+            <strong>You're all set!</strong> Open Gmail. You will see the ScamShield button appear in the toolbar when viewing emails!
+          </p>
         </div>
       </div>
     </div>

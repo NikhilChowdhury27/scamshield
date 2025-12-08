@@ -96,3 +96,4 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 };
 
 export default FollowUpChat;
+

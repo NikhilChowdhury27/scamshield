@@ -9,21 +9,26 @@ interface LayoutShellProps {
 }
 
 const LayoutShell: React.FC<LayoutShellProps> = ({ currentView, onNavigate, children, fontSize }) => {
-  // Check if we are running in "Extension Mode" (Side Panel)
   const isExtensionMode = new URLSearchParams(window.location.search).get('mode') === 'extension';
 
-  // Map font size setting to CSS classes for scaling
   const getFontSizeClass = () => {
     switch (fontSize) {
-      case 'small': return '';
-      case 'medium': return 'text-lg'; // Tailwind text-lg is 1.125rem
-      case 'large': return 'text-xl'; // Tailwind text-xl is 1.25rem
+      case 'small': return 'text-base';
+      case 'medium': return 'text-lg';
+      case 'large': return 'text-xl';
       default: return 'text-lg';
     }
   };
 
   return (
-    <div className={`min-h-screen bg-canvas dark:bg-canvas-dark flex flex-col md:flex-row font-sans text-txt dark:text-txt-dark ${getFontSizeClass()}`}>
+    <div className={`min-h-screen bg-canvas dark:bg-canvas-dark flex flex-col md:flex-row text-txt dark:text-txt-dark ${getFontSizeClass()} relative overflow-hidden`}>
+      {/* Background decoration - subtle gradient orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-orange-200/30 to-amber-100/20 dark:from-orange-900/10 dark:to-amber-900/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-tr from-stone-200/40 to-stone-100/20 dark:from-stone-800/10 dark:to-stone-900/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-gradient-to-tl from-amber-100/30 to-orange-50/20 dark:from-amber-900/5 dark:to-orange-900/5 rounded-full blur-3xl" />
+      </div>
+      
       {!isExtensionMode && (
         <Sidebar 
           currentView={currentView} 
@@ -31,7 +36,7 @@ const LayoutShell: React.FC<LayoutShellProps> = ({ currentView, onNavigate, chil
         />
       )}
       
-      <main className={`flex-grow md:h-screen md:overflow-y-auto w-full ${isExtensionMode ? 'p-2' : ''}`}>
+      <main className={`flex-grow md:h-screen md:overflow-y-auto w-full relative z-10 ${isExtensionMode ? 'p-2' : ''}`}>
         <div className={`mx-auto ${isExtensionMode ? 'p-2' : 'p-4 md:p-8 lg:p-12 pb-24 max-w-4xl'}`}>
           {children}
         </div>

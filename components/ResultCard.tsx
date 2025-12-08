@@ -15,7 +15,8 @@ import {
   Globe,
   Volume2,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 
 interface ResultCardProps {
@@ -33,39 +34,51 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
     switch (level) {
       case 'HIGH':
         return {
+          gradient: 'from-red-500 to-rose-600',
           bg: 'bg-red-50 dark:bg-red-900/20',
-          border: 'border-red-200 dark:border-red-900/50',
-          text: 'text-red-900 dark:text-red-200',
-          badgeBg: 'bg-red-600',
-          icon: <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-500" />,
-          title: 'High Scam Risk'
+          border: 'border-red-200 dark:border-red-800/50',
+          text: 'text-red-900 dark:text-red-100',
+          badgeBg: 'bg-gradient-to-r from-red-500 to-rose-600',
+          icon: <ShieldAlert className="w-10 h-10 text-white" />,
+          iconBg: 'bg-gradient-to-br from-red-500 to-rose-600',
+          title: 'High Scam Risk',
+          description: 'This appears to be a scam. Do not respond or send money.'
         };
       case 'MEDIUM':
         return {
-          bg: 'bg-orange-50 dark:bg-orange-900/20',
-          border: 'border-orange-200 dark:border-orange-900/50',
-          text: 'text-orange-900 dark:text-orange-200',
-          badgeBg: 'bg-orange-500',
-          icon: <ShieldQuestion className="w-12 h-12 text-orange-500" />,
-          title: 'Suspicious'
+          gradient: 'from-amber-500 to-orange-600',
+          bg: 'bg-amber-50 dark:bg-amber-900/20',
+          border: 'border-amber-200 dark:border-amber-800/50',
+          text: 'text-amber-900 dark:text-amber-100',
+          badgeBg: 'bg-gradient-to-r from-amber-500 to-orange-600',
+          icon: <ShieldQuestion className="w-10 h-10 text-white" />,
+          iconBg: 'bg-gradient-to-br from-amber-500 to-orange-600',
+          title: 'Suspicious',
+          description: 'This message has some warning signs. Proceed with caution.'
         };
       case 'LOW':
         return {
-          bg: 'bg-green-50 dark:bg-green-900/20',
-          border: 'border-green-200 dark:border-green-900/50',
-          text: 'text-green-900 dark:text-green-200',
-          badgeBg: 'bg-green-600',
-          icon: <ShieldCheck className="w-12 h-12 text-green-600 dark:text-green-500" />,
-          title: 'Likely Safe'
+          gradient: 'from-emerald-500 to-teal-600',
+          bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+          border: 'border-emerald-200 dark:border-emerald-800/50',
+          text: 'text-emerald-900 dark:text-emerald-100',
+          badgeBg: 'bg-gradient-to-r from-emerald-500 to-teal-600',
+          icon: <ShieldCheck className="w-10 h-10 text-white" />,
+          iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+          title: 'Likely Safe',
+          description: 'This message appears to be legitimate.'
         };
       default:
         return {
-          bg: 'bg-canvas dark:bg-gray-800',
-          border: 'border-border dark:border-gray-700',
-          text: 'text-txt dark:text-gray-100',
-          badgeBg: 'bg-gray-600',
-          icon: <ShieldQuestion className="w-12 h-12 text-gray-600 dark:text-gray-400" />,
-          title: 'Unknown Risk'
+          gradient: 'from-stone-500 to-stone-600',
+          bg: 'bg-stone-50 dark:bg-stone-800',
+          border: 'border-stone-200 dark:border-stone-700',
+          text: 'text-stone-900 dark:text-stone-100',
+          badgeBg: 'bg-gradient-to-r from-stone-500 to-stone-600',
+          icon: <ShieldQuestion className="w-10 h-10 text-white" />,
+          iconBg: 'bg-gradient-to-br from-stone-500 to-stone-600',
+          title: 'Unknown Risk',
+          description: 'Unable to determine risk level.'
         };
     }
   };
@@ -97,116 +110,138 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
   };
 
   return (
-    <div className="w-full space-y-6 animate-fade-in">
-      <div className={`rounded-3xl border-2 ${styles.border} ${styles.bg} p-6 md:p-8 shadow-sm transition-colors`}>
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-5 mb-5">
-          <div className="flex-shrink-0 bg-surface dark:bg-gray-800 p-4 rounded-full shadow-sm">
-            {styles.icon}
-          </div>
-          <div className="flex-grow">
-            <h2 className={`text-3xl font-bold ${styles.text}`}>
-              {styles.title}
-            </h2>
-            <div className="flex flex-wrap items-center gap-3 mt-2">
-              <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-white text-base font-bold tracking-wide ${styles.badgeBg}`}>
-                {analysis.risk_label} RISK
-              </span>
-              {timestamp && (
-                <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-sm font-medium">
-                  <Clock className="w-4 h-4" />
-                  Checked: {new Date(timestamp).toLocaleDateString()} {new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </span>
-              )}
+    <div className="w-full space-y-6">
+      {/* Main Result Card */}
+      <div className={`rounded-3xl border-2 ${styles.border} ${styles.bg} overflow-hidden shadow-lg animate-scale-in`}>
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${styles.gradient} p-6`}>
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
+              {styles.icon}
+            </div>
+            <div className="text-white">
+              <h2 className="text-3xl font-display font-bold">{styles.title}</h2>
+              <p className="text-white/80 mt-1">{styles.description}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white/60 dark:bg-black/20 p-5 rounded-xl border border-black/5 dark:border-white/5 relative">
-            <p className="text-xl leading-relaxed text-txt dark:text-gray-100 font-medium pr-12">
-                {analysis.summary_for_elder}
+        {/* Content */}
+        <div className="p-6">
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            <span className={`inline-flex items-center px-4 py-2 rounded-full text-white text-sm font-bold tracking-wide ${styles.badgeBg} shadow-md`}>
+              {analysis.risk_label} RISK
+            </span>
+            {timestamp && (
+              <span className="inline-flex items-center gap-2 text-stone-500 dark:text-stone-400 text-sm font-medium bg-stone-100 dark:bg-stone-800 px-3 py-1.5 rounded-full">
+                <Clock className="w-4 h-4" />
+                {new Date(timestamp).toLocaleDateString()} {new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </span>
+            )}
+          </div>
+          
+          <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-700 relative group">
+            <p className="text-xl leading-relaxed text-txt dark:text-txt-dark pr-14">
+              {analysis.summary_for_elder}
             </p>
             <button 
-                onClick={handleReadAloud}
-                disabled={isGeneratingAudio || isPlayingAudio}
-                className="absolute top-4 right-4 p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-                title="Read aloud"
+              onClick={handleReadAloud}
+              disabled={isGeneratingAudio || isPlayingAudio}
+              className="absolute top-4 right-4 p-3 bg-stone-100 dark:bg-stone-800 rounded-xl text-stone-600 dark:text-stone-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600 dark:hover:text-orange-400 transition-all group-hover:scale-105"
+              title="Read aloud"
             >
-                {isGeneratingAudio ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                ) : (
-                    <Volume2 className={`w-6 h-6 ${isPlayingAudio ? 'animate-pulse text-blue-500' : ''}`} />
-                )}
+              {isGeneratingAudio ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <Volume2 className={`w-6 h-6 ${isPlayingAudio ? 'animate-pulse text-orange-500' : ''}`} />
+              )}
             </button>
+          </div>
         </div>
       </div>
 
+      {/* Web Check Results */}
       {searchResult && (
-          <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 md:p-8 shadow-sm">
-             <div className="flex items-center gap-3 mb-4">
-                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                    <Globe className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-txt dark:text-white">Web Check</h3>
-             </div>
-             <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                 <p className="text-gray-800 dark:text-gray-200 text-lg leading-relaxed mb-4">
-                     {searchResult.text}
-                 </p>
-                 {searchResult.sources.length > 0 && (
-                     <div className="space-y-2">
-                         <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase">Sources Found:</p>
-                         {searchResult.sources.map((source, i) => (
-                             <a 
-                                key={i} 
-                                href={source.uri} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline truncate"
-                             >
-                                 <ExternalLink className="w-4 h-4 flex-shrink-0" />
-                                 {source.title || source.uri}
-                             </a>
-                         ))}
-                     </div>
-                 )}
-             </div>
+        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 shadow-sm animate-slide-up stagger-1">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl">
+              <Globe className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-display font-bold text-txt dark:text-txt-dark">Web Verification</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">Cross-referenced with online sources</p>
+            </div>
           </div>
+          <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+            <p className="text-stone-800 dark:text-stone-200 text-lg leading-relaxed mb-4">
+              {searchResult.text}
+            </p>
+            {searchResult.sources.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Sources:</p>
+                {searchResult.sources.map((source, i) => (
+                  <a 
+                    key={i} 
+                    href={source.uri} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                  >
+                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{source.title || source.uri}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
+      {/* Transcription */}
       {analysis.transcription && (
-        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 md:p-8 shadow-sm">
+        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 shadow-sm animate-slide-up stagger-1">
           <div className="flex items-center gap-3 mb-4">
-             <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
-                <Mic className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl">
+              <Mic className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h3 className="text-2xl font-bold text-txt dark:text-white">Conversation Transcript</h3>
+            <div>
+              <h3 className="text-xl font-display font-bold text-txt dark:text-txt-dark">Conversation Transcript</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">AI-generated transcription</p>
+            </div>
           </div>
-          <div className="bg-canvas dark:bg-gray-900/50 p-5 rounded-xl border border-border dark:border-border-dark font-mono text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
-             {analysis.transcription}
+          <div className="bg-stone-50 dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-700 font-mono text-sm text-stone-700 dark:text-stone-300 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+            {analysis.transcription}
           </div>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 italic px-2">
-            * This text was written down automatically by our AI. It might not be perfect.
+          <p className="text-xs text-stone-400 dark:text-stone-500 mt-3 italic">
+            * Transcription may not be 100% accurate
           </p>
         </div>
       )}
 
-      {(analysis.risk_label === 'HIGH' || analysis.risk_label === 'MEDIUM') && (
-        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 md:p-8 shadow-sm">
+      {/* Red Flags */}
+      {(analysis.risk_label === 'HIGH' || analysis.risk_label === 'MEDIUM') && analysis.red_flags.length > 0 && (
+        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 shadow-sm animate-slide-up stagger-2">
           <div className="flex items-center gap-3 mb-6">
-            <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
-                <AlertTriangle className="w-8 h-8 text-orange-600 dark:text-orange-500" />
+            <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-2xl">
+              <AlertTriangle className="w-7 h-7 text-amber-600 dark:text-amber-500" />
             </div>
-            <h3 className="text-2xl font-bold text-txt dark:text-white">Red Flags Found</h3>
+            <div>
+              <h3 className="text-xl font-display font-bold text-txt dark:text-txt-dark">Red Flags Found</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">Warning signs we detected</p>
+            </div>
           </div>
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {analysis.red_flags.map((flag, index) => (
-              <div key={index} className="flex gap-4 p-5 bg-orange-50 dark:bg-orange-900/10 rounded-2xl border border-orange-100 dark:border-orange-900/30 transition-colors hover:bg-orange-100/50 dark:hover:bg-orange-900/20">
-                <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 font-bold text-lg">
+              <div 
+                key={index} 
+                className="flex gap-4 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30 hover:shadow-md transition-shadow"
+              >
+                <span className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-lg shadow-md">
                   {index + 1}
                 </span>
                 <div>
-                  <h4 className="font-bold text-txt dark:text-gray-100 text-xl mb-1">{flag.title}</h4>
-                  <p className="text-gray-800 dark:text-gray-300 leading-relaxed">{flag.description_for_elder}</p>
+                  <h4 className="font-bold text-txt dark:text-txt-dark text-lg mb-1">{flag.title}</h4>
+                  <p className="text-stone-700 dark:text-stone-300 leading-relaxed">{flag.description_for_elder}</p>
                 </div>
               </div>
             ))}
@@ -214,69 +249,84 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
         </div>
       )}
 
-      <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 md:p-8 shadow-sm">
+      {/* Safe Actions */}
+      <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark p-6 shadow-sm animate-slide-up stagger-3">
         <div className="flex items-center gap-3 mb-6">
-            <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
-                <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-500" />
-            </div>
-          <h3 className="text-2xl font-bold text-txt dark:text-white">What You Should Do Now</h3>
+          <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl">
+            <ShieldCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-500" />
+          </div>
+          <div>
+            <h3 className="text-xl font-display font-bold text-txt dark:text-txt-dark">What You Should Do</h3>
+            <p className="text-stone-500 dark:text-stone-400 text-sm">Recommended actions</p>
+          </div>
         </div>
-        <ul className="space-y-4">
+        <ul className="space-y-3">
           {analysis.safe_actions_for_elder.map((action, index) => (
-            <li key={index} className="flex gap-4 items-start p-4 bg-green-50 dark:bg-green-900/10 rounded-xl">
-              <div className="bg-green-200 dark:bg-green-800 rounded-full p-1 mt-0.5">
-                 <Check className="w-5 h-5 text-green-800 dark:text-green-200" />
+            <li key={index} className="flex gap-4 items-start p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+              <div className="p-1.5 bg-emerald-500 rounded-lg mt-0.5">
+                <Check className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xl text-gray-800 dark:text-gray-200 font-medium">{action}</span>
+              <span className="text-lg text-stone-800 dark:text-stone-200">{action}</span>
             </li>
           ))}
         </ul>
       </div>
 
+      {/* Call Script */}
       {analysis.call_script_if_scammer_calls_back && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-3xl border border-blue-200 dark:border-blue-900/50 p-6 md:p-8 shadow-sm">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border-2 border-blue-200 dark:border-blue-800/50 p-6 shadow-sm animate-slide-up stagger-4">
           <div className="flex items-center gap-3 mb-4">
-            <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                <Phone className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl">
+              <Phone className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-2xl font-bold text-blue-900 dark:text-blue-100">If They Call Again</h3>
+            <div>
+              <h3 className="text-xl font-display font-bold text-blue-900 dark:text-blue-100">If They Call Again</h3>
+              <p className="text-blue-700 dark:text-blue-300 text-sm">Read this exact sentence to them</p>
+            </div>
           </div>
-          <p className="text-blue-800 dark:text-blue-200 mb-3 text-lg">Read this exact sentence to them:</p>
-          <div className="bg-surface dark:bg-gray-900 p-6 rounded-2xl border-l-8 border-blue-500 shadow-sm">
-            <p className="text-2xl font-serif italic text-gray-800 dark:text-gray-200 leading-relaxed">
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border-l-4 border-blue-500 shadow-sm">
+            <p className="text-xl font-serif italic text-stone-800 dark:text-stone-200 leading-relaxed">
               "{analysis.call_script_if_scammer_calls_back}"
             </p>
           </div>
         </div>
       )}
 
-      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-3xl border border-purple-200 dark:border-purple-900/50 p-6 md:p-8 shadow-sm">
+      {/* Share with Family */}
+      <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-3xl border-2 border-purple-200 dark:border-purple-800/50 p-6 shadow-sm animate-slide-up stagger-5">
         <div className="flex items-center gap-3 mb-4">
-            <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
-                <Share2 className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-            </div>
-          <h3 className="text-2xl font-bold text-purple-900 dark:text-purple-100">Share With Your Family</h3>
+          <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-2xl">
+            <Share2 className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-display font-bold text-purple-900 dark:text-purple-100">Share With Family</h3>
+            <p className="text-purple-700 dark:text-purple-300 text-sm">Send this to your family group chat</p>
+          </div>
         </div>
-        <p className="text-gray-800 dark:text-gray-200 mb-4 text-lg">Send this to your family group chat so they can help you:</p>
-        <div className="bg-surface dark:bg-gray-900 p-5 rounded-2xl border border-purple-100 dark:border-purple-800 relative">
-          <p className="text-gray-800 dark:text-gray-300 text-lg pr-12 leading-relaxed">{analysis.family_alert_text}</p>
+        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-purple-100 dark:border-purple-800 relative group">
+          <p className="text-stone-800 dark:text-stone-300 text-lg pr-14 leading-relaxed">{analysis.family_alert_text}</p>
           <button 
             onClick={handleCopyFamilyText}
-            className="absolute top-4 right-4 p-3 bg-canvas dark:bg-gray-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-full transition-colors border border-border dark:border-gray-700"
+            className="absolute top-4 right-4 p-3 bg-stone-100 dark:bg-stone-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-xl transition-all group-hover:scale-105"
             title="Copy to clipboard"
           >
-            {copiedFamilyText ? <Check className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
+            {copiedFamilyText ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
           </button>
         </div>
         {copiedFamilyText && (
-          <p className="text-green-600 dark:text-green-400 font-bold mt-2 ml-2 flex items-center gap-2">
+          <p className="text-emerald-600 dark:text-emerald-400 font-bold mt-3 flex items-center gap-2 animate-scale-in">
             <Check className="w-5 h-5" /> Copied to clipboard!
           </p>
         )}
       </div>
 
-      <div className="bg-canvas dark:bg-gray-800 rounded-2xl p-6 text-center">
-        <p className="text-gray-500 dark:text-gray-400 text-base leading-relaxed">
+      {/* Disclaimer */}
+      <div className="bg-stone-100 dark:bg-stone-800 rounded-2xl p-5 text-center animate-fade-in">
+        <div className="flex items-center justify-center gap-2 text-stone-500 dark:text-stone-400 mb-2">
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm font-medium">AI Analysis</span>
+        </div>
+        <p className="text-stone-500 dark:text-stone-400 text-sm leading-relaxed">
           {analysis.disclaimer_for_elder}
         </p>
       </div>
