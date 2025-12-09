@@ -14,7 +14,7 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles: FileInput[] = Array.from(e.target.files).map((file) => ({
+      const newFiles: FileInput[] = Array.from(e.target.files).map((file: File) => ({
         file,
         previewUrl: URL.createObjectURL(file),
         type: file.type.startsWith('audio') ? 'audio' : 'image',
@@ -155,4 +155,3 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
 };
 
 export default InputSection;
-

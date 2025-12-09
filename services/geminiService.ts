@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { SCAM_SHIELD_SYSTEM_PROMPT, FOLLOW_UP_SYSTEM_PROMPT, SEARCH_VERIFICATION_PROMPT } from "../constants";
 import { AnalysisResponse, FileInput, ScamAnalysis, SearchVerificationResult } from "../types";
@@ -37,30 +36,38 @@ export const analyzeContent = async (
   }
 
   try {
-    // UPDATED: Use gemini-3-pro-preview with Thinking Config for deeper analysis
+    // UPDATED: Use gemini-2.5-flash for reliability and speed
+    // Removed thinkingConfig as it can cause instability with strict JSON mode in preview models
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", 
+      model: "gemini-2.5-flash", 
       config: {
         systemInstruction: SCAM_SHIELD_SYSTEM_PROMPT,
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 32768 } // Max thinking budget for Pro
       },
       contents: {
-        role: "user",
         parts: parts,
       },
     });
 
-    const responseText = response.text;
+    let responseText = response.text;
     if (!responseText) {
       throw new Error("No response received from the AI.");
     }
 
-    const jsonResponse = JSON.parse(responseText) as AnalysisResponse;
-    return jsonResponse;
+    // Clean up potential markdown code blocks (```json ... ```) which cause JSON.parse to fail
+    responseText = responseText.replace(/```json\n?|```/g, "").trim();
+
+    try {
+        const jsonResponse = JSON.parse(responseText) as AnalysisResponse;
+        return jsonResponse;
+    } catch (parseError) {
+        console.error("JSON Parse Error. Raw response:", responseText);
+        throw new Error("I couldn't understand the AI's response. Please try again.");
+    }
+    
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("I had trouble analyzing that. Please try again or ask a family member for help.");
+    throw new Error("I had trouble analyzing that. Please check your connection or try again.");
   }
 };
 
@@ -77,7 +84,6 @@ export const verifyScamWithSearch = async (text: string): Promise<SearchVerifica
                 tools: [{ googleSearch: {} }]
             },
             contents: {
-                role: "user",
                 parts: [{ text: `Check this content for scam reports: ${text.substring(0, 500)}` }]
             }
         });
@@ -153,7 +159,6 @@ export const askFollowUpQuestion = async (
                 systemInstruction: FOLLOW_UP_SYSTEM_PROMPT,
             },
             contents: {
-                role: "user",
                 parts: [{ text: context }]
             }
         });
@@ -189,4 +194,3 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
       reader.onerror = (error) => reject(error);
     });
   };
-

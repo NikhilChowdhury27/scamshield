@@ -92,9 +92,17 @@ const CheckMessageView: React.FC = () => {
   const cleanupAudioResources = () => {
     stopVisualizer();
     if (timerRef.current) clearInterval(timerRef.current);
+    
+    // Close Live API Session
     if (liveSessionRef.current) {
+        try {
+            liveSessionRef.current.close();
+        } catch (e) {
+            console.error("Error closing live session", e);
+        }
         liveSessionRef.current = null;
     }
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
     }
@@ -110,7 +118,7 @@ const CheckMessageView: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles: FileInput[] = Array.from(e.target.files).map((file) => ({
+      const newFiles: FileInput[] = Array.from(e.target.files).map((file: File) => ({
         file,
         previewUrl: URL.createObjectURL(file),
         type: file.type.startsWith('audio') ? 'audio' : 'image',
@@ -387,6 +395,11 @@ const CheckMessageView: React.FC = () => {
         }
       });
       
+      // Store the session promise so we can close it later
+      sessionPromise.then(session => {
+          liveSessionRef.current = session;
+      });
+      
       setIsRecordingMode(true);
       setRecordingDuration(0);
       setTimeout(() => startVisualizer(stream), 100);
@@ -409,6 +422,7 @@ const CheckMessageView: React.FC = () => {
     if (mediaRecorderRef.current && isRecordingMode) {
       mediaRecorderRef.current.onstop = () => {
          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+         // Create a File object from the Blob
          const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.webm`, { type: 'audio/webm' });
          
          const newFile: FileInput = {
