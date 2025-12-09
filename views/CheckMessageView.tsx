@@ -4,7 +4,7 @@ import { analyzeContent, verifyScamWithSearch } from '../services/geminiService'
 import ResultCard from '../components/ResultCard';
 import FollowUpChat from '../components/FollowUpChat';
 import { useScamHistory } from '../hooks/useScamHistory';
-import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield, Waves } from 'lucide-react';
+import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
 
@@ -156,7 +156,7 @@ const CheckMessageView: React.FC = () => {
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     threeCameraRef.current = camera;
-    camera.position.z = 2.2; 
+    camera.position.z = 3.5; // Further back to show medium-sized sphere 
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
@@ -164,17 +164,20 @@ const CheckMessageView: React.FC = () => {
     canvasContainerRef.current.appendChild(renderer.domElement);
     threeRendererRef.current = renderer;
 
-    const particleCount = 280000;
+    // Create a clean, medium-sized sphere
+    const particleCount = 30000; // Optimal for smooth, clean appearance
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     
-    // Warm orange to red gradient
-    const colorBottom = new THREE.Color(0xF97316); 
-    const colorTop = new THREE.Color(0xDC2626);    
+    // Elegant gradient: magenta/pink (top) → purple (middle) → blue (bottom)
+    const colorTop = new THREE.Color(0xFF1493);    // Deep pink/magenta
+    const colorMiddle = new THREE.Color(0x8B00FF);  // Purple
+    const colorBottom = new THREE.Color(0x00BFFF);  // Deep sky blue
 
-    const radius = 1.5;
+    const radius = 1.0; // Medium-sized sphere radius
 
+    // Create evenly distributed points on sphere surface (Fibonacci sphere for uniform distribution)
     for (let i = 0; i < particleCount; i++) {
         const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
         const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
@@ -187,8 +190,18 @@ const CheckMessageView: React.FC = () => {
         positions[i * 3 + 1] = y;
         positions[i * 3 + 2] = z;
 
-        const normalizedY = (y / radius + 1) / 2;
-        const c = new THREE.Color().copy(colorBottom).lerp(colorTop, normalizedY);
+        // Create gradient: top (magenta) → middle (purple) → bottom (blue)
+        const normalizedY = (y / radius + 1) / 2; // 0 (bottom) to 1 (top)
+        let c: THREE.Color;
+        if (normalizedY > 0.5) {
+          // Top half: magenta to purple
+          const t = (normalizedY - 0.5) * 2; // 0 to 1
+          c = new THREE.Color().copy(colorMiddle).lerp(colorTop, t);
+        } else {
+          // Bottom half: purple to blue
+          const t = normalizedY * 2; // 0 to 1
+          c = new THREE.Color().copy(colorBottom).lerp(colorMiddle, t);
+        }
         
         colors[i * 3] = c.r;
         colors[i * 3 + 1] = c.g;
@@ -198,28 +211,30 @@ const CheckMessageView: React.FC = () => {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    const originalPositions = new Float32Array(positions);
-    originalPositionsRef.current = originalPositions;
+    // No need to store original positions since we're keeping it as a clean sphere
+    originalPositionsRef.current = null;
 
     const material = new THREE.PointsMaterial({
-        size: 0.012, 
+        size: 0.015, // Refined size for clean, polished look
         vertexColors: true,
         transparent: true,
-        opacity: 1.0, 
-        blending: THREE.NormalBlending,
+        opacity: 0.85, // Slightly transparent for depth
+        blending: THREE.AdditiveBlending, // Glowing effect
         depthWrite: false,
+        sizeAttenuation: true, // Natural perspective
     });
 
     const sphere = new THREE.Points(geometry, material);
     scene.add(sphere);
     sphereMeshRef.current = sphere;
 
-    const sparkCount = 2500;
+    // Add subtle sparkles on the surface for visual interest
+    const sparkCount = 800;
     const sparkGeo = new THREE.BufferGeometry();
     const sparkPos = new Float32Array(sparkCount * 3);
 
     for(let i=0; i<sparkCount; i++) {
-       const r = radius * (1.0 + Math.random() * 0.3);
+       const r = radius * 1.02; // Just slightly outside the sphere surface
        const theta = Math.random() * Math.PI * 2;
        const phi = Math.acos(2 * Math.random() - 1);
        sparkPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
@@ -229,12 +244,13 @@ const CheckMessageView: React.FC = () => {
     sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
 
     const sparkMat = new THREE.PointsMaterial({
-        color: 0xFCD34D,
-        size: 0.015,
+        color: 0xFFFFFF, // White sparks for clean look
+        size: 0.02,
         transparent: true,
-        opacity: 0.0,
+        opacity: 0.25,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        sizeAttenuation: true,
     });
 
     const sparkMesh = new THREE.Points(sparkGeo, sparkMat);
@@ -242,64 +258,33 @@ const CheckMessageView: React.FC = () => {
     sparkMeshRef.current = sparkMesh;
 
     const animate = () => {
-        if (!analyserRef.current || !sphereMeshRef.current || !originalPositionsRef.current) return;
+        if (!analyserRef.current || !sphereMeshRef.current) return;
         
         animationFrameRef.current = requestAnimationFrame(animate);
         analyserRef.current.getByteFrequencyData(dataArray);
 
+        const time = performance.now() * 0.001;
+        
+        // Smooth, slow rotation for clean globe effect
+        sphereMeshRef.current.rotation.y = time * 0.1;
+        
+        // Optional: very subtle pulse based on audio (minimal to keep it clean)
         let sum = 0;
         const range = Math.floor(bufferLength * 0.3);
         for(let i=0; i<range; i++) sum += dataArray[i];
         const volume = range > 0 ? sum / range : 0;
         const normVol = volume / 255;
-
-        const time = performance.now() * 0.001;
-        const currentPositions = sphereMeshRef.current.geometry.attributes.position.array;
+        const pulse = 1.0 + (normVol * 0.03); // Very subtle pulse (3% max)
         
-        const spike = normVol * 0.4;
-        const baseAmp = 0.08;
-        const f1 = 4.0;
-        const f2 = 5.0;
-        const speed = 1.0;
+        sphereMeshRef.current.scale.set(pulse, pulse, pulse);
 
-        for(let i=0; i < particleCount; i++) {
-            const idx = i * 3;
-            const ox = originalPositionsRef.current[idx];
-            const oy = originalPositionsRef.current[idx+1];
-            const oz = originalPositionsRef.current[idx+2];
-
-            const wave = Math.sin(ox * f1 + time * speed) * Math.cos(oy * f2 + time * speed);
-            const displacement = wave * (baseAmp + spike);
-            const scale = 1 + displacement;
-
-            currentPositions[idx] = ox * scale;
-            currentPositions[idx+1] = oy * scale;
-            currentPositions[idx+2] = oz * scale;
-        }
-        
-        sphereMeshRef.current.geometry.attributes.position.needsUpdate = true;
-        sphereMeshRef.current.rotation.y = time * 0.15;
-
+        // Rotate sparks with the sphere for cohesive look
         if (sparkMeshRef.current) {
-            sparkMeshRef.current.rotation.y -= 0.05;
-            sparkMeshRef.current.rotation.x += 0.02;
-
-            const timeSinceActivity = performance.now() - lastActivityTimeRef.current;
-            const isProcessing = timeSinceActivity < 300;
+            sparkMeshRef.current.rotation.y = time * 0.1;
             
-            let targetOpacity = 0.1; 
-            
-            if (isProcessing) {
-                targetOpacity = 0.8 + Math.random() * 0.2;
-                const sparkScale = 1.0 + Math.sin(time * 20) * 0.05;
-                sparkMeshRef.current.scale.set(sparkScale, sparkScale, sparkScale);
-            } else {
-                targetOpacity = 0.1 + Math.sin(time * 2) * 0.05;
-                sparkMeshRef.current.scale.set(1, 1, 1);
-            }
-
-            const currentOpacity = (sparkMeshRef.current.material as THREE.PointsMaterial).opacity;
-            (sparkMeshRef.current.material as THREE.PointsMaterial).opacity += (targetOpacity - currentOpacity) * 0.2;
+            // Subtle sparkle animation
+            const sparkle = Math.sin(time * 3) * 0.1 + 0.3;
+            (sparkMeshRef.current.material as THREE.PointsMaterial).opacity = sparkle;
         }
 
         renderer.render(scene, camera);
@@ -519,76 +504,34 @@ const CheckMessageView: React.FC = () => {
 
   if (isRecordingMode) {
       return (
-          <div className="fixed inset-0 z-50 bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950 flex flex-col items-center justify-center p-4 animate-fade-in">
-              {/* Ambient glow */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse-slow" />
-                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+          <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4 animate-fade-in">
+              {/* Simple, elegant header */}
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 text-center z-20">
+                  <h2 className="text-2xl md:text-3xl font-body font-normal text-white tracking-wide">
+                      Go ahead. I'm listening
+                  </h2>
               </div>
               
-              <div className="w-full max-w-2xl space-y-6 text-center flex flex-col h-full max-h-[90vh] relative z-10">
-                  {/* Header */}
-                  <div className="flex-shrink-0 space-y-3 mt-4">
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-full text-sm font-medium border border-red-500/30">
-                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                        Recording in Progress
-                      </div>
-                      <h2 className="text-3xl font-display font-bold text-white">
-                        Listening to the call...
-                      </h2>
-                      <p className="text-stone-400">Put your phone on speaker. I'm transcribing everything.</p>
-                  </div>
-                  
-                  {/* Visualizer */}
-                  <div className="relative h-72 w-full flex items-center justify-center flex-shrink-0">
-                      <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
-                      <div className="absolute z-20 bottom-4 left-1/2 -translate-x-1/2">
-                        <div className="px-6 py-3 bg-stone-900/80 backdrop-blur-sm rounded-2xl border border-stone-700">
-                          <span className="font-mono text-2xl text-white font-medium tracking-wider">
-                            {formatTime(recordingDuration)}
-                          </span>
-                        </div>
-                      </div>
-                  </div>
-                  
-                  {/* Transcript Box */}
-                  <div className="flex-grow bg-stone-900/60 backdrop-blur-sm rounded-3xl border border-stone-700/50 p-6 text-left overflow-hidden flex flex-col w-full shadow-2xl">
-                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-stone-700/50">
-                        <Waves className="w-5 h-5 text-orange-400" />
-                        <span className="text-sm font-medium text-stone-400 uppercase tracking-wider">Live Transcript</span>
-                      </div>
-                      <div className="flex-grow overflow-y-auto space-y-3 pr-2" ref={transcriptBoxRef}>
-                          {liveTranscript ? (
-                              <p className="whitespace-pre-wrap text-lg text-stone-200 leading-relaxed">{liveTranscript}</p>
-                          ) : (
-                              <div className="flex h-full items-center justify-center gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                    <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                                  </div>
-                                  <p className="text-stone-500">Waiting for speech...</p>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-4 w-full flex-shrink-0 pb-4">
-                      <button 
-                        onClick={cancelRecording} 
-                        className="p-4 rounded-2xl bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-white transition-all flex-shrink-0 border border-stone-700"
-                      >
-                          <X className="w-6 h-6" />
-                      </button>
-                      <button 
-                        onClick={stopAndAnalyze} 
-                        className="flex-grow py-5 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-lg hover:from-orange-600 hover:to-red-600 transition-all shadow-xl shadow-orange-500/25 transform hover:scale-[1.02] flex items-center justify-center gap-3 btn-press"
-                      >
-                          <Shield className="w-6 h-6" />
-                          Stop & Analyze for Scams
-                      </button>
-                  </div>
+              {/* Large centered visualizer */}
+              <div className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center">
+                  <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
+              </div>
+              
+              {/* Minimal action buttons at bottom */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-20">
+                  <button 
+                    onClick={cancelRecording} 
+                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm border border-white/20"
+                    aria-label="Cancel"
+                  >
+                      <X className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={stopAndAnalyze} 
+                    className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition-all backdrop-blur-sm border border-white/20 text-sm"
+                  >
+                      Stop & Analyze
+                  </button>
               </div>
           </div>
       )
@@ -628,9 +571,9 @@ const CheckMessageView: React.FC = () => {
         {/* Live Call Monitor - Featured Card */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-3xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity"></div>
-          <button
-            type="button"
-            onClick={startRecording}
+                  <button
+                    type="button"
+                    onClick={startRecording}
             className="relative w-full bg-gradient-to-br from-stone-900 to-stone-800 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-8 text-left cursor-pointer overflow-hidden border border-stone-700/50 hover:border-orange-500/50 transition-all btn-press"
           >
             {/* Background Pattern */}
@@ -660,11 +603,11 @@ const CheckMessageView: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl blur-xl opacity-50"></div>
                 <div className="relative w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl">
                   <Mic className="w-10 h-10 text-white" strokeWidth={1.5} />
-                </div>
-              </div>
+                        </div>
+                     </div>
               
               {/* Content */}
-              <div className="flex-grow">
+                     <div className="flex-grow">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-md uppercase tracking-wider">
                     Live
@@ -678,29 +621,29 @@ const CheckMessageView: React.FC = () => {
                 </h3>
                 <p className="text-stone-400 text-base">
                   Put your phone on speaker. I'll listen, transcribe, and analyze in real-time.
-                </p>
-              </div>
+                         </p>
+                     </div>
               
               {/* Arrow */}
               <div className="hidden md:flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
                 <ChevronRight className="w-6 h-6 text-white" />
               </div>
-            </div>
-          </button>
-        </div>
+                     </div>
+                  </button>
+              </div>
 
         {/* Divider */}
         <div className="flex items-center gap-4 py-2">
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
           <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or share content directly</span>
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
-        </div>
+              </div>
 
         {/* Input Mode Selector */}
         <div className="grid grid-cols-2 gap-4">
           {/* Text Input Card */}
-          <button
-            type="button"
+                 <button
+                    type="button"
             onClick={() => setActiveMode('text')}
             className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${
               activeMode === 'text'
@@ -726,7 +669,7 @@ const CheckMessageView: React.FC = () => {
             {activeMode === 'text' && (
               <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full"></div>
             )}
-          </button>
+                 </button>
 
           {/* Image Upload Card */}
           <button
@@ -762,17 +705,17 @@ const CheckMessageView: React.FC = () => {
               </div>
             )}
           </button>
-        </div>
+          </div>
 
         {/* Hidden File Input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*,audio/*"
-          multiple
-          className="hidden"
-        />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*,audio/*"
+            multiple
+            className="hidden"
+          />
 
         {/* Expanded Input Area */}
         {activeMode && (
@@ -809,7 +752,7 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                 {files.length > 0 ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {files.map((file, index) => (
+                  {files.map((file, index) => (
                         <div key={index} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
                           {file.type === 'image' ? (
                             <img
@@ -828,13 +771,13 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                               className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
                             >
                               <Trash2 className="w-5 h-5" />
-                            </button>
+                          </button>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
                             <p className="text-white text-xs truncate">{file.file.name}</p>
                           </div>
-                        </div>
-                      ))}
+                      </div>
+                  ))}
                       
                       {/* Add More Button */}
                       <button
@@ -862,32 +805,32 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                 )}
               </div>
             )}
-          </div>
-        )}
+              </div>
+          )}
 
         {/* Analyze Button */}
-        <button
-          onClick={handleAnalyzeForm}
+            <button
+                onClick={handleAnalyzeForm}
           disabled={isLoading || !hasContent}
           className={`w-full py-5 rounded-2xl text-xl font-bold transition-all btn-press relative overflow-hidden ${
             isLoading || !hasContent
               ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
               : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
-          }`}
-        >
-          {isLoading ? (
-            <span className="flex items-center justify-center gap-3">
-              <Loader2 className="animate-spin h-6 w-6" />
+                }`}
+            >
+                {isLoading ? (
+                <span className="flex items-center justify-center gap-3">
+                    <Loader2 className="animate-spin h-6 w-6" />
               Analyzing for scams...
-            </span>
-          ) : (
+                </span>
+                ) : (
             <span className="flex items-center justify-center gap-3">
               <Shield className="w-6 h-6" />
               {hasContent ? 'Analyze Now' : 'Add content to analyze'}
             </span>
-          )}
-        </button>
-      </div>
+                )}
+            </button>
+          </div>
 
       {/* Trust Indicators */}
       <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2">
@@ -900,9 +843,9 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
             <item.icon className={`w-6 h-6 mx-auto mb-2 text-${item.color}-500`} />
             <p className="font-bold text-sm text-txt dark:text-txt-dark">{item.label}</p>
             <p className="text-xs text-stone-400">{item.desc}</p>
-          </div>
+        </div>
         ))}
-      </div>
+        </div>
     </div>
   );
 };

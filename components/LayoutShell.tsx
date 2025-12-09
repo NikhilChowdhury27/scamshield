@@ -46,3 +46,4 @@ const LayoutShell: React.FC<LayoutShellProps> = ({ currentView, onNavigate, chil
 };
 
 export default LayoutShell;
+

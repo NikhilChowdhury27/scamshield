@@ -37,4 +37,3 @@ export const useScamHistory = () => {
 
   return { history, addToHistory, clearHistory };
 };
-
