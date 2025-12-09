@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Clock, BookOpen, HelpCircle, Chrome, Moon, Sun, Sparkles } from 'lucide-react';
+import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface SidebarProps {
@@ -14,7 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
     { id: 'check', label: 'Check Message', icon: Shield, description: 'Analyze suspicious content' },
     { id: 'history', label: 'History', icon: Clock, description: 'Past analyses' },
     { id: 'learn', label: 'Learn', icon: BookOpen, description: 'Common scam types' },
-    { id: 'extension', label: 'Gmail', icon: Chrome, description: 'Browser extension' },
+    { id: 'news', label: 'News', icon: Newspaper, description: 'Local scam alerts' },
     { id: 'settings', label: 'Settings', icon: HelpCircle, description: 'Preferences & help' },
   ];
 
@@ -37,9 +37,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         </div>
       </div>
 
-      <div className="bg-surface/80 dark:bg-surface-dark/80 glass w-full md:w-72 flex-shrink-0 fixed bottom-0 md:relative md:h-screen md:sticky md:top-0 border-t md:border-t-0 md:border-r border-border dark:border-border-dark flex flex-col z-50 md:z-20 pb-safe md:pb-0">
+      <div className="bg-surface/80 dark:bg-surface-dark/80 glass w-full md:w-72 flex-shrink-0 fixed bottom-0 md:relative md:h-full border-t md:border-t-0 md:border-r border-border dark:border-border-dark flex flex-col z-50 md:z-20 pb-safe md:pb-0">
         {/* Logo Section - Desktop */}
-        <div className="hidden md:block p-6 border-b border-border dark:border-border-dark">
+        <div className="hidden md:block p-6 border-b border-border dark:border-border-dark flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl blur-lg opacity-50 animate-pulse-slow" />
@@ -59,14 +59,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="h-full p-2 md:p-4 flex justify-between md:block gap-1 md:gap-2">
+        <nav className="h-full md:h-auto md:flex-1 p-2 md:p-4 flex justify-between md:block gap-1 md:gap-2 overflow-y-auto">
           {navItems.map((item, index) => {
             const isActive = currentView === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-3 px-2 py-3 md:px-4 md:py-3.5 rounded-2xl transition-all font-medium whitespace-nowrap relative overflow-hidden btn-press animate-slide-in`}
+                className={`group flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-3 px-2 py-3 md:px-4 md:py-3.5 rounded-2xl transition-all font-medium relative overflow-hidden btn-press animate-slide-in min-w-0`}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 {/* Active background */}
@@ -84,21 +84,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
                   <div className="md:hidden absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-b-full" />
                 )}
 
-                <div className={`relative p-2 rounded-xl transition-all ${isActive
+                <div className={`relative p-2 rounded-xl transition-all flex-shrink-0 ${isActive
                   ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-md'
                   : 'bg-transparent md:bg-stone-100 md:dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
                   }`}>
                   <item.icon className="w-6 h-6 md:w-5 md:h-5" strokeWidth={isActive ? 2.5 : 2} />
                 </div>
 
-                <div className="relative text-left hidden md:block">
-                  <span className={`block text-base ${isActive
+                <div className="relative text-left hidden md:block flex-1 min-w-0">
+                  <span className={`block text-base truncate ${isActive
                     ? 'text-orange-600 dark:text-orange-400 font-semibold'
                     : 'text-stone-700 dark:text-stone-300 group-hover:text-stone-900 dark:group-hover:text-white'
                     }`}>
                     {item.label}
                   </span>
-                  <span className="block text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+                  <span className="block text-xs text-stone-400 dark:text-stone-500 mt-0.5 truncate">
                     {item.description}
                   </span>
                 </div>
@@ -108,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border dark:border-border-dark hidden md:block space-y-4">
+        <div className="p-4 border-t border-border dark:border-border-dark hidden md:block space-y-4 flex-shrink-0">
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}

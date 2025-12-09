@@ -3,11 +3,11 @@ import LayoutShell from './components/LayoutShell';
 import CheckMessageView from './views/CheckMessageView';
 import HistoryView from './views/HistoryView';
 import LearnView from './views/LearnView';
+import NewsView from './views/NewsView';
 import HelpSettingsView from './views/HelpSettingsView';
-import ExtensionPromoView from './views/ExtensionPromoView';
 import { useTheme } from './context/ThemeContext';
 
-type ViewType = 'check' | 'history' | 'learn' | 'settings' | 'extension';
+type ViewType = 'check' | 'history' | 'learn' | 'news' | 'settings';
 type FontSize = 'small' | 'medium' | 'large';
 
 const App: React.FC = () => {
@@ -15,7 +15,12 @@ const App: React.FC = () => {
     const savedView = localStorage.getItem('currentView');
     return (savedView as ViewType) || 'check';
   });
-  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  
+  const [fontSize, setFontSize] = useState<FontSize>(() => {
+    const savedSize = localStorage.getItem('scamShieldFontSize');
+    return (savedSize as FontSize) || 'medium';
+  });
+  
   const { isDarkMode, toggleTheme } = useTheme();
 
   React.useEffect(() => {
@@ -24,6 +29,7 @@ const App: React.FC = () => {
 
   // Apply global font scaling
   React.useEffect(() => {
+    localStorage.setItem('scamShieldFontSize', fontSize);
     const root = document.documentElement;
     switch (fontSize) {
       case 'small':
@@ -52,6 +58,8 @@ const App: React.FC = () => {
         return <HistoryView />;
       case 'learn':
         return <LearnView />;
+      case 'news':
+        return <NewsView />;
       case 'settings':
         return (
           <HelpSettingsView
@@ -61,8 +69,6 @@ const App: React.FC = () => {
             setDarkMode={handleSetDarkMode}
           />
         );
-      case 'extension':
-        return <ExtensionPromoView />;
       default:
         return <CheckMessageView />;
     }
