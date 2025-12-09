@@ -35,34 +35,35 @@ const CheckMessageView: React.FC = () => {
   const [searchResult, setSearchResult] = useState<SearchVerificationResult | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Input state
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileInput[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Active input mode
   const [activeMode, setActiveMode] = useState<'text' | 'image' | null>(null);
-  
+
   // Audio Recording state
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
-  
+
   // High quality recorder for final analysis
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]); 
-  
+  const audioChunksRef = useRef<Blob[]>([]);
+
   // Live API refs
   const liveSessionRef = useRef<any>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
-  
+  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const timerRef = useRef<any>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null); 
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const transcriptBoxRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
-  
+
   // Visualizer refs
   const visualizerContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -72,7 +73,9 @@ const CheckMessageView: React.FC = () => {
   const sphereMeshRef = useRef<THREE.Points | null>(null);
   const sparkMeshRef = useRef<THREE.Points | null>(null);
   const originalPositionsRef = useRef<Float32Array | null>(null);
-  
+
+
+
   const lastActivityTimeRef = useRef<number>(0);
 
   const { addToHistory } = useScamHistory();
@@ -84,35 +87,35 @@ const CheckMessageView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      if (transcriptBoxRef.current) {
-          transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
-      }
+    if (transcriptBoxRef.current) {
+      transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
+    }
   }, [liveTranscript]);
 
   const cleanupAudioResources = () => {
     stopVisualizer();
     if (timerRef.current) clearInterval(timerRef.current);
-    
+
     // Close Live API Session
     if (liveSessionRef.current) {
-        try {
-            liveSessionRef.current.close();
-        } catch (e) {
-            console.error("Error closing live session", e);
-        }
-        liveSessionRef.current = null;
+      try {
+        liveSessionRef.current.close();
+      } catch (e) {
+        console.error("Error closing live session", e);
+      }
+      liveSessionRef.current = null;
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stop();
     }
     if (inputAudioContextRef.current) {
-        inputAudioContextRef.current.close();
-        inputAudioContextRef.current = null;
+      inputAudioContextRef.current.close();
+      inputAudioContextRef.current = null;
     }
     if (processorRef.current) {
-        processorRef.current.disconnect();
-        processorRef.current = null;
+      processorRef.current.disconnect();
+      processorRef.current = null;
     }
   };
 
@@ -150,9 +153,9 @@ const CheckMessageView: React.FC = () => {
     visualizerContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     analyserRef.current = visualizerContextRef.current.createAnalyser();
     const source = visualizerContextRef.current.createMediaStreamSource(stream);
-    
+
     source.connect(analyserRef.current);
-    analyserRef.current.fftSize = 1024; 
+    analyserRef.current.fftSize = 256;
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
@@ -164,7 +167,7 @@ const CheckMessageView: React.FC = () => {
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     threeCameraRef.current = camera;
-    camera.position.z = 3.5; // Further back to show medium-sized sphere 
+    camera.position.z = 2.8;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
@@ -172,130 +175,170 @@ const CheckMessageView: React.FC = () => {
     canvasContainerRef.current.appendChild(renderer.domElement);
     threeRendererRef.current = renderer;
 
-    // Create a clean, medium-sized sphere
-    const particleCount = 30000; // Optimal for smooth, clean appearance
+    const particleCount = 7000;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
-    
-    // Elegant gradient: magenta/pink (top) → purple (middle) → blue (bottom)
-    const colorTop = new THREE.Color(0xFF1493);    // Deep pink/magenta
-    const colorMiddle = new THREE.Color(0x8B00FF);  // Purple
-    const colorBottom = new THREE.Color(0x00BFFF);  // Deep sky blue
+    const originalPositions = new Float32Array(particleCount * 3);
 
-    const radius = 1.0; // Medium-sized sphere radius
+    const colorTop = new THREE.Color(0xF97316);    // Orange (Current Style)
+    const colorBottom = new THREE.Color(0x0592F0);  // Sky Blue (Complementary)
 
-    // Create evenly distributed points on sphere surface (Fibonacci sphere for uniform distribution)
+    const radius = 0.75;
+
     for (let i = 0; i < particleCount; i++) {
-        const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
-        const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+      const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
 
-        const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = radius * Math.sin(phi) * Math.sin(theta);
-        const z = radius * Math.cos(phi);
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.sin(phi) * Math.sin(theta);
+      const z = radius * Math.cos(phi);
 
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
 
-        // Create gradient: top (magenta) → middle (purple) → bottom (blue)
-        const normalizedY = (y / radius + 1) / 2; // 0 (bottom) to 1 (top)
-        let c: THREE.Color;
-        if (normalizedY > 0.5) {
-          // Top half: magenta to purple
-          const t = (normalizedY - 0.5) * 2; // 0 to 1
-          c = new THREE.Color().copy(colorMiddle).lerp(colorTop, t);
-        } else {
-          // Bottom half: purple to blue
-          const t = normalizedY * 2; // 0 to 1
-          c = new THREE.Color().copy(colorBottom).lerp(colorMiddle, t);
-        }
-        
-        colors[i * 3] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
+      originalPositions[i * 3] = x;
+      originalPositions[i * 3 + 1] = y;
+      originalPositions[i * 3 + 2] = z;
+
+      const normalizedY = (y / radius + 1) / 2;
+      const c = new THREE.Color().copy(colorBottom).lerp(colorTop, normalizedY);
+
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    // No need to store original positions since we're keeping it as a clean sphere
-    originalPositionsRef.current = null;
+    originalPositionsRef.current = originalPositions;
 
     const material = new THREE.PointsMaterial({
-        size: 0.015, // Refined size for clean, polished look
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.85, // Slightly transparent for depth
-        blending: THREE.AdditiveBlending, // Glowing effect
-        depthWrite: false,
-        sizeAttenuation: true, // Natural perspective
+      size: 0.01,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
 
     const sphere = new THREE.Points(geometry, material);
     scene.add(sphere);
     sphereMeshRef.current = sphere;
 
-    // Add subtle sparkles on the surface for visual interest
-    const sparkCount = 800;
-    const sparkGeo = new THREE.BufferGeometry();
-    const sparkPos = new Float32Array(sparkCount * 3);
-
-    for(let i=0; i<sparkCount; i++) {
-       const r = radius * 1.02; // Just slightly outside the sphere surface
-       const theta = Math.random() * Math.PI * 2;
-       const phi = Math.acos(2 * Math.random() - 1);
-       sparkPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
-       sparkPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-       sparkPos[i*3+2] = r * Math.cos(phi);
-    }
-    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
-
-    const sparkMat = new THREE.PointsMaterial({
-        color: 0xFFFFFF, // White sparks for clean look
-        size: 0.02,
-        transparent: true,
-        opacity: 0.25,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true,
-    });
-
-    const sparkMesh = new THREE.Points(sparkGeo, sparkMat);
-    scene.add(sparkMesh);
-    sparkMeshRef.current = sparkMesh;
-
     const animate = () => {
-        if (!analyserRef.current || !sphereMeshRef.current) return;
-        
-        animationFrameRef.current = requestAnimationFrame(animate);
-        analyserRef.current.getByteFrequencyData(dataArray);
+      if (!analyserRef.current || !sphereMeshRef.current || !originalPositionsRef.current) return;
 
-        const time = performance.now() * 0.001;
-        
-        // Smooth, slow rotation for clean globe effect
-        sphereMeshRef.current.rotation.y = time * 0.1;
-        
-        // Optional: very subtle pulse based on audio (minimal to keep it clean)
-        let sum = 0;
-        const range = Math.floor(bufferLength * 0.3);
-        for(let i=0; i<range; i++) sum += dataArray[i];
-        const volume = range > 0 ? sum / range : 0;
-        const normVol = volume / 255;
-        const pulse = 1.0 + (normVol * 0.03); // Very subtle pulse (3% max)
-        
-        sphereMeshRef.current.scale.set(pulse, pulse, pulse);
+      animationFrameRef.current = requestAnimationFrame(animate);
+      analyserRef.current.getByteFrequencyData(dataArray);
 
-        // Rotate sparks with the sphere for cohesive look
-        if (sparkMeshRef.current) {
-            sparkMeshRef.current.rotation.y = time * 0.1;
-            
-            // Subtle sparkle animation
-            const sparkle = Math.sin(time * 3) * 0.1 + 0.3;
-            (sparkMeshRef.current.material as THREE.PointsMaterial).opacity = sparkle;
+      const time = performance.now() * 0.001;
+
+      sphereMeshRef.current.rotation.y = time * 0.15;
+      sphereMeshRef.current.rotation.z = time * 0.05;
+
+      // Audio reactive "breathing" and waves
+      let sum = 0;
+      const lowerRange = Math.floor(bufferLength * 0.4);
+      for (let i = 0; i < lowerRange; i++) sum += dataArray[i];
+      const volume = lowerRange > 0 ? sum / lowerRange : 0;
+      const normVol = volume / 255;
+
+      const breathing = Math.sin(time * 2) * 0.05 + 1.0 + (normVol * 0.1);
+      sphereMeshRef.current.scale.set(breathing, breathing, breathing);
+
+      const positions = sphereMeshRef.current.geometry.attributes.position.array as Float32Array;
+      const original = originalPositionsRef.current;
+
+      // Dynamic noise/wave effect
+      if (volume > 10) {
+        for (let i = 0; i < particleCount; i++) {
+          const ix = i * 3;
+          const x = original[ix];
+          const y = original[ix + 1];
+          const z = original[ix + 2];
+
+          // Simple wave based on y-position and time
+          const wave = Math.sin(y * 5 + time * 3) * 0.1 * normVol;
+
+          // Noise-like randomness based on index
+          const noise = Math.sin(i * 0.1 + time * 5) * 0.05 * normVol;
+
+          const scale = 1 + wave + noise;
+
+          positions[ix] = x * scale;
+          positions[ix + 1] = y * scale;
+          positions[ix + 2] = z * scale;
         }
+        sphereMeshRef.current.geometry.attributes.position.needsUpdate = true;
+      } else {
+        // Smooth return to sphere shape
+        for (let i = 0; i < particleCount; i++) {
+          const ix = i * 3;
+          // Linear interpolation back to original
+          positions[ix] = positions[ix] * 0.95 + original[ix] * 0.05;
+          positions[ix + 1] = positions[ix + 1] * 0.95 + original[ix + 1] * 0.05;
+          positions[ix + 2] = positions[ix + 2] * 0.95 + original[ix + 2] * 0.05;
+        }
+        sphereMeshRef.current.geometry.attributes.position.needsUpdate = true;
+      }
 
-        renderer.render(scene, camera);
+
+      // Draw Waveform Equalizer
+      if (waveformCanvasRef.current && analyserRef.current) {
+        const canvas = waveformCanvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const w = canvas.width;
+          const h = canvas.height;
+          ctx.clearRect(0, 0, w, h);
+
+          const barCount = 48; // Increased by 50%
+          const barWidth = 2; // Reduced by 50%
+          const gap = 2; // Reduced gap to fit increased count
+          const totalWidth = barCount * (barWidth + gap);
+          const startX = (w - totalWidth) / 2;
+
+          // Use frequency data for visualizer
+          const frequencyData = new Uint8Array(barCount);
+          // Get lower frequency range which usually has voice
+          const step = Math.floor(bufferLength / barCount / 2);
+
+          for (let i = 0; i < barCount; i++) {
+            let val = 0;
+            for (let j = 0; j < step; j++) {
+              val += dataArray[i * step + j];
+            }
+            frequencyData[i] = val / step;
+          }
+
+          ctx.fillStyle = '#60A5FA'; // Blue-400
+
+          for (let i = 0; i < barCount; i++) {
+            // Normalized height 0.0 to 1.0
+            const percent = frequencyData[i] / 255;
+            // Make it symmetrical/centered vertically
+            const height = Math.max(4, percent * h * 0.8); // Min height 4px
+
+            const x = startX + i * (barWidth + gap);
+            const y = (h - height) / 2;
+
+            // Fade out effect at edges
+            const fromCenter = Math.abs(i - barCount / 2) / (barCount / 2);
+            ctx.globalAlpha = Math.max(0, 1 - Math.pow(fromCenter, 3));
+
+            // Draw rounded bar
+            ctx.beginPath();
+            ctx.roundRect(x, y, barWidth, height, 4);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1; // Reset opacity
+        }
+      }
+
+
+      renderer.render(scene, camera);
     };
 
     animate();
@@ -303,27 +346,24 @@ const CheckMessageView: React.FC = () => {
 
   const stopVisualizer = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    
+
     if (threeRendererRef.current && canvasContainerRef.current) {
-        if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
-            canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
-        }
-        threeRendererRef.current.dispose();
+      if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
+        canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
+      }
+      threeRendererRef.current.dispose();
     }
+
     if (sphereMeshRef.current) {
-        sphereMeshRef.current.geometry.dispose();
-        (sphereMeshRef.current.material as THREE.Material).dispose();
-    }
-    if (sparkMeshRef.current) {
-        sparkMeshRef.current.geometry.dispose();
-        (sparkMeshRef.current.material as THREE.Material).dispose();
+      sphereMeshRef.current.geometry.dispose();
+      (sphereMeshRef.current.material as THREE.Material).dispose();
     }
 
     if (visualizerContextRef.current) {
       visualizerContextRef.current.close();
       visualizerContextRef.current = null;
     }
-    
+
     threeSceneRef.current = null;
     threeCameraRef.current = null;
     threeRendererRef.current = null;
@@ -335,15 +375,15 @@ const CheckMessageView: React.FC = () => {
   const startRecording = async () => {
     setError(null);
     setLiveTranscript('');
-    
+
     if (!process.env.API_KEY) {
-        setError("API Key is missing. Cannot start live session.");
-        return;
+      setError("API Key is missing. Cannot start live session.");
+      return;
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -355,55 +395,57 @@ const CheckMessageView: React.FC = () => {
       };
       mediaRecorder.start();
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 16000});
-      inputAudioContextRef.current = inputCtx;
-      
-      const source = inputCtx.createMediaStreamSource(stream);
-      const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
-      processorRef.current = scriptProcessor;
+      if (process.env.API_KEY) {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-        config: {
+        const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+        inputAudioContextRef.current = inputCtx;
+
+        const source = inputCtx.createMediaStreamSource(stream);
+        const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
+        processorRef.current = scriptProcessor;
+
+        const sessionPromise = ai.live.connect({
+          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+          config: {
             responseModalities: [Modality.AUDIO],
             inputAudioTranscription: {},
             systemInstruction: "You are a passive listener. Your goal is to transcribe the conversation. Do not speak unless addressed directly."
-        },
-        callbacks: {
+          },
+          callbacks: {
             onopen: () => {
-                scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
-                    const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                    const pcmBlob = createBlob(inputData);
-                    sessionPromise.then((session) => {
-                         session.sendRealtimeInput({ media: pcmBlob });
-                    });
-                };
-                source.connect(scriptProcessor);
-                scriptProcessor.connect(inputCtx.destination);
+              scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                const pcmBlob = createBlob(inputData);
+                sessionPromise.then((session) => {
+                  session.sendRealtimeInput({ media: pcmBlob });
+                });
+              };
+              source.connect(scriptProcessor);
+              scriptProcessor.connect(inputCtx.destination);
             },
             onmessage: (message: LiveServerMessage) => {
-                lastActivityTimeRef.current = performance.now();
-                const transcript = message.serverContent?.inputTranscription?.text;
-                if (transcript) {
-                    setLiveTranscript(prev => prev + transcript);
-                }
+              lastActivityTimeRef.current = performance.now();
+              const transcript = message.serverContent?.inputTranscription?.text;
+              if (transcript) {
+                setLiveTranscript(prev => prev + transcript);
+              }
             },
-            onclose: () => {},
+            onclose: () => { },
             onerror: (err) => console.error("Live session error", err)
-        }
-      });
-      
-      // Store the session promise so we can close it later
-      sessionPromise.then(session => {
+          }
+        });
+
+        // Store the session promise so we can close it later
+        sessionPromise.then(session => {
           liveSessionRef.current = session;
-      });
-      
+        });
+      }
+
       setIsRecordingMode(true);
       setRecordingDuration(0);
       setTimeout(() => startVisualizer(stream), 100);
-      
+
       timerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -421,22 +463,22 @@ const CheckMessageView: React.FC = () => {
   const stopAndAnalyze = () => {
     if (mediaRecorderRef.current && isRecordingMode) {
       mediaRecorderRef.current.onstop = () => {
-         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-         // Create a File object from the Blob
-         const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.webm`, { type: 'audio/webm' });
-         
-         const newFile: FileInput = {
-            file: audioFile,
-            previewUrl: URL.createObjectURL(audioBlob),
-            type: 'audio'
-          };
-          analyzeDirectly(newFile);
-          cleanupAudioResources();
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Create a File object from the Blob
+        const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.webm`, { type: 'audio/webm' });
+
+        const newFile: FileInput = {
+          file: audioFile,
+          previewUrl: URL.createObjectURL(audioBlob),
+          type: 'audio'
+        };
+        analyzeDirectly(newFile);
+        cleanupAudioResources();
       };
       mediaRecorderRef.current.stop();
     } else {
-        cleanupAudioResources();
-        setIsRecordingMode(false);
+      cleanupAudioResources();
+      setIsRecordingMode(false);
     }
   };
 
@@ -448,22 +490,22 @@ const CheckMessageView: React.FC = () => {
   };
 
   const analyzeDirectly = async (audioFile: FileInput) => {
-      setIsRecordingMode(false);
-      setIsLoading(true);
-      try {
-        const contextText = liveTranscript ? `[PARTIAL TRANSCRIPT FROM LIVE SESSION]: ${liveTranscript}` : "";
-        const [result, searchVerification] = await Promise.all([
-             analyzeContent(contextText, [audioFile]),
-             contextText ? verifyScamWithSearch(contextText) : Promise.resolve(undefined)
-        ]);
-        setAnalysis(result.analysis);
-        setSearchResult(searchVerification);
-        addToHistory({ ...result.analysis }); 
-      } catch (err: any) {
-        setError(err.message || "Something went wrong analyzing the audio.");
-      } finally {
-        setIsLoading(false);
-      }
+    setIsRecordingMode(false);
+    setIsLoading(true);
+    try {
+      const contextText = liveTranscript ? `[PARTIAL TRANSCRIPT FROM LIVE SESSION]: ${liveTranscript}` : "";
+      const [result, searchVerification] = await Promise.all([
+        analyzeContent(contextText, [audioFile]),
+        contextText ? verifyScamWithSearch(contextText) : Promise.resolve(undefined)
+      ]);
+      setAnalysis(result.analysis);
+      setSearchResult(searchVerification);
+      addToHistory({ ...result.analysis });
+    } catch (err: any) {
+      setError(err.message || "Something went wrong analyzing the audio.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAnalyzeForm = async (e: React.FormEvent) => {
@@ -474,8 +516,8 @@ const CheckMessageView: React.FC = () => {
     setError(null);
     try {
       const [result, searchVerification] = await Promise.all([
-          analyzeContent(text, files),
-          text ? verifyScamWithSearch(text) : Promise.resolve(undefined)
+        analyzeContent(text, files),
+        text ? verifyScamWithSearch(text) : Promise.resolve(undefined)
       ]);
       setAnalysis(result.analysis);
       setSearchResult(searchVerification);
@@ -503,7 +545,7 @@ const CheckMessageView: React.FC = () => {
   if (analysis) {
     return (
       <div className="space-y-8 animate-slide-up">
-        <button 
+        <button
           onClick={handleReset}
           className="flex items-center gap-2 text-stone-500 hover:text-orange-600 dark:text-stone-400 dark:hover:text-orange-400 transition-colors font-medium group"
         >
@@ -517,38 +559,57 @@ const CheckMessageView: React.FC = () => {
   }
 
   if (isRecordingMode) {
-      return (
-          <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4 animate-fade-in">
-              {/* Simple, elegant header */}
-              <div className="absolute top-12 left-1/2 -translate-x-1/2 text-center z-20">
-                  <h2 className="text-2xl md:text-3xl font-body font-normal text-white tracking-wide">
-                      Go ahead. I'm listening
-                  </h2>
-              </div>
-              
-              {/* Large centered visualizer */}
-              <div className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center">
-                  <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
-              </div>
-              
-              {/* Minimal action buttons at bottom */}
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-20">
-                  <button 
-                    onClick={cancelRecording} 
-                    className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm border border-white/20"
-                    aria-label="Cancel"
-                  >
-                      <X className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={stopAndAnalyze} 
-                    className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition-all backdrop-blur-sm border border-white/20 text-sm"
-                  >
-                      Stop & Analyze
-                  </button>
-              </div>
-          </div>
-      )
+    return (
+      <div className="fixed inset-0 md:left-72 z-50 bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
+        <div className="spline-container absolute top-0 left-0 w-full h-full -z-10">
+          <iframe
+            src="https://my.spline.design/aidatamodelinteraction-mdTL3FktFVHgDvFr5TKtnYDV"
+            frameBorder="0"
+            width="100%"
+            height="100%"
+            id="aura-spline"
+            className="w-full h-full rotate-180 invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
+          />
+        </div>
+        <button
+          onClick={cancelRecording}
+          className="absolute top-10 right-6 p-3 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition-all backdrop-blur-sm border border-stone-200 dark:border-white/20 z-50"
+          aria-label="Cancel"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        {/* Simple, elegant header */}
+        <div className="text-center z-20 mt-8 mb-4 max-w-2xl flex-shrink-0">
+          <h2 className="text-2xl md:text-3xl font-body font-normal text-txt dark:text-white tracking-wide">
+            Go ahead. I'm listening
+          </h2>
+        </div>
+
+        {/* Large centered visualizer */}
+        <div className="relative flex-1 w-full max-w-6xl min-h-0 flex items-center justify-center">
+          <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
+        </div>
+
+        {/* Minimal action buttons at bottom */}
+        <div className="flex flex-col items-center gap-6 z-20 mb-8 mt-4 flex-shrink-0">
+          {/* Waveform Equalizer */}
+          <canvas
+            ref={waveformCanvasRef}
+            width={400}
+            height={40}
+            className="w-96 h-10 opacity-80"
+          />
+
+          <button
+            onClick={stopAndAnalyze}
+            className="px-6 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-medium transition-all shadow-lg hover:shadow-red-500/25 border border-red-500 text-sm flex items-center gap-2"
+          >
+            <div className="w-3 h-3 bg-white rounded-sm animate-pulse" />
+            Stop & Analyze
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -581,14 +642,14 @@ const CheckMessageView: React.FC = () => {
 
       {/* Main Input Section */}
       <div className="space-y-6 animate-slide-up stagger-1">
-        
+
         {/* Live Call Monitor - Featured Card */}
         <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-3xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity"></div>
-                  <button
-                    type="button"
-                    onClick={startRecording}
-            className="relative w-full bg-gradient-to-br from-stone-900 to-stone-800 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-8 text-left cursor-pointer overflow-hidden border border-stone-700/50 hover:border-orange-500/50 transition-all btn-press"
+          <div className="absolute -inset-1 bg-gradient-to-r rounded-3xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity"></div>
+          <button
+            type="button"
+            onClick={startRecording}
+            className="relative w-full bg-gradient-to-br from-stone-900 to-stone-800 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-6 text-left cursor-pointer overflow-hidden border border-stone-700/50 hover:border-orange-500/50 transition-all btn-press"
           >
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-5">
@@ -597,7 +658,7 @@ const CheckMessageView: React.FC = () => {
                 backgroundSize: '32px 32px'
               }}></div>
             </div>
-            
+
             {/* Animated waves */}
             <div className="absolute right-0 top-0 bottom-0 w-1/3 overflow-hidden opacity-20">
               <div className="absolute inset-0 flex items-center justify-center">
@@ -610,18 +671,18 @@ const CheckMessageView: React.FC = () => {
                 ))}
               </div>
             </div>
-            
+
             <div className="relative flex items-center gap-6">
               {/* Icon */}
               <div className="relative flex-shrink-0">
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl blur-xl opacity-50"></div>
+                <div className="absolute inset-0 bg-gradient-to-br rounded-2xl blur-xl opacity-50"></div>
                 <div className="relative w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl">
                   <Mic className="w-10 h-10 text-white" strokeWidth={1.5} />
-                        </div>
-                     </div>
-              
+                </div>
+              </div>
+
               {/* Content */}
-                     <div className="flex-grow">
+              <div className="flex-grow">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-md uppercase tracking-wider">
                     Live
@@ -635,46 +696,43 @@ const CheckMessageView: React.FC = () => {
                 </h3>
                 <p className="text-stone-400 text-base">
                   Put your phone on speaker. I'll listen, transcribe, and analyze in real-time.
-                         </p>
-                     </div>
-              
+                </p>
+              </div>
+
               {/* Arrow */}
               <div className="hidden md:flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
                 <ChevronRight className="w-6 h-6 text-white" />
               </div>
-                     </div>
-                  </button>
-              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Divider */}
         <div className="flex items-center gap-4 py-2">
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
           <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or share content directly</span>
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
-              </div>
+        </div>
 
         {/* Input Mode Selector */}
         <div className="grid grid-cols-2 gap-4">
           {/* Text Input Card */}
-                 <button
-                    type="button"
+          <button
+            type="button"
             onClick={() => setActiveMode('text')}
-            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${
-              activeMode === 'text'
-                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
-                : 'border-stone-200 dark:border-stone-700 bg-surface dark:bg-surface-dark hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md'
-            }`}
+            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${activeMode === 'text'
+              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
+              : 'border-stone-700 bg-surface dark:bg-surface-dark hover:border-orange-500/50'
+              }`}
           >
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${
-              activeMode === 'text'
-                ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
-                : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
-            }`}>
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${activeMode === 'text'
+              ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
+              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
+              }`}>
               <FileText className="w-7 h-7" strokeWidth={1.5} />
             </div>
-            <h4 className={`text-lg font-bold mb-1 ${
-              activeMode === 'text' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
-            }`}>
+            <h4 className={`text-lg font-bold mb-1 ${activeMode === 'text' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
+              }`}>
               Paste Text
             </h4>
             <p className="text-sm text-stone-500 dark:text-stone-400">
@@ -683,7 +741,7 @@ const CheckMessageView: React.FC = () => {
             {activeMode === 'text' && (
               <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full"></div>
             )}
-                 </button>
+          </button>
 
           {/* Image Upload Card */}
           <button
@@ -692,22 +750,19 @@ const CheckMessageView: React.FC = () => {
               setActiveMode('image');
               fileInputRef.current?.click();
             }}
-            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${
-              activeMode === 'image'
-                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
-                : 'border-stone-200 dark:border-stone-700 bg-surface dark:bg-surface-dark hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md'
-            }`}
+            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${activeMode === 'image'
+              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
+              : 'border-stone-700 bg-surface dark:bg-surface-dark hover:border-orange-500/50'
+              }`}
           >
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${
-              activeMode === 'image'
-                ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
-                : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
-            }`}>
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${activeMode === 'image'
+              ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
+              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
+              }`}>
               <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
             </div>
-            <h4 className={`text-lg font-bold mb-1 ${
-              activeMode === 'image' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
-            }`}>
+            <h4 className={`text-lg font-bold mb-1 ${activeMode === 'image' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
+              }`}>
               Upload Screenshot
             </h4>
             <p className="text-sm text-stone-500 dark:text-stone-400">
@@ -719,17 +774,17 @@ const CheckMessageView: React.FC = () => {
               </div>
             )}
           </button>
-          </div>
+        </div>
 
         {/* Hidden File Input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*,audio/*"
-            multiple
-            className="hidden"
-          />
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*,audio/*"
+          multiple
+          className="hidden"
+        />
 
         {/* Expanded Input Area */}
         {activeMode && (
@@ -766,7 +821,7 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                 {files.length > 0 ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {files.map((file, index) => (
+                      {files.map((file, index) => (
                         <div key={index} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
                           {file.type === 'image' ? (
                             <img
@@ -785,14 +840,14 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                               className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
                             >
                               <Trash2 className="w-5 h-5" />
-                          </button>
+                            </button>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
                             <p className="text-white text-xs truncate">{file.file.name}</p>
                           </div>
-                      </div>
-                  ))}
-                      
+                        </div>
+                      ))}
+
                       {/* Add More Button */}
                       <button
                         onClick={() => fileInputRef.current?.click()}
@@ -819,32 +874,31 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                 )}
               </div>
             )}
-              </div>
-          )}
+          </div>
+        )}
 
         {/* Analyze Button */}
-            <button
-                onClick={handleAnalyzeForm}
+        <button
+          onClick={handleAnalyzeForm}
           disabled={isLoading || !hasContent}
-          className={`w-full py-5 rounded-2xl text-xl font-bold transition-all btn-press relative overflow-hidden ${
-            isLoading || !hasContent
-              ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
-              : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
-                }`}
-            >
-                {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                    <Loader2 className="animate-spin h-6 w-6" />
+          className={`w-full py-5 rounded-2xl text-xl font-bold transition-all btn-press relative overflow-hidden ${isLoading || !hasContent
+            ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
+            : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
+            }`}
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-3">
+              <Loader2 className="animate-spin h-6 w-6" />
               Analyzing for scams...
-                </span>
-                ) : (
+            </span>
+          ) : (
             <span className="flex items-center justify-center gap-3">
               <Shield className="w-6 h-6" />
               {hasContent ? 'Analyze Now' : 'Add content to analyze'}
             </span>
-                )}
-            </button>
-          </div>
+          )}
+        </button>
+      </div>
 
       {/* Trust Indicators */}
       <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2">
@@ -857,9 +911,9 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
             <item.icon className={`w-6 h-6 mx-auto mb-2 text-${item.color}-500`} />
             <p className="font-bold text-sm text-txt dark:text-txt-dark">{item.label}</p>
             <p className="text-xs text-stone-400">{item.desc}</p>
-        </div>
+          </div>
         ))}
-        </div>
+      </div>
     </div>
   );
 };

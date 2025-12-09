@@ -11,16 +11,39 @@ type ViewType = 'check' | 'history' | 'learn' | 'settings' | 'extension';
 type FontSize = 'small' | 'medium' | 'large';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewType>('check');
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    const savedView = localStorage.getItem('currentView');
+    return (savedView as ViewType) || 'check';
+  });
   const [fontSize, setFontSize] = useState<FontSize>('medium');
   const { isDarkMode, toggleTheme } = useTheme();
+
+  React.useEffect(() => {
+    localStorage.setItem('currentView', currentView);
+  }, [currentView]);
+
+  // Apply global font scaling
+  React.useEffect(() => {
+    const root = document.documentElement;
+    switch (fontSize) {
+      case 'small':
+        root.style.fontSize = '14px';
+        break;
+      case 'medium': // Default
+        root.style.fontSize = '16px';
+        break;
+      case 'large':
+        root.style.fontSize = '20px';
+        break;
+    }
+  }, [fontSize]);
 
   const handleSetDarkMode = (enabled: boolean) => {
     if (enabled !== isDarkMode) {
       toggleTheme();
     }
   };
-  
+
   const renderView = () => {
     switch (currentView) {
       case 'check':
@@ -31,9 +54,9 @@ const App: React.FC = () => {
         return <LearnView />;
       case 'settings':
         return (
-          <HelpSettingsView 
-            fontSize={fontSize} 
-            setFontSize={setFontSize} 
+          <HelpSettingsView
+            fontSize={fontSize}
+            setFontSize={setFontSize}
             isDarkMode={isDarkMode}
             setDarkMode={handleSetDarkMode}
           />
@@ -46,8 +69,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <LayoutShell 
-      currentView={currentView} 
+    <LayoutShell
+      currentView={currentView}
       onNavigate={(view) => setCurrentView(view as ViewType)}
       fontSize={fontSize}
     >
