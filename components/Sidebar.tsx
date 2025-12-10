@@ -15,8 +15,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
   const navItems = [
     { id: 'check', label: 'New Scan', icon: Shield, description: 'Analyze suspicious content' },
     { id: 'history', label: 'Past Analysis', icon: Clock, description: 'View past scans' },
-    { id: 'news', label: 'Local Alerts', icon: Newspaper, description: 'Recent scams in your area' },
-    { id: 'learn', label: 'Common Scams', icon: BookOpen, description: 'Types of fraud' },
+    { id: 'news', label: 'Scam News', icon: Newspaper, description: 'Recent scams in your area' },
+    { id: 'learn', label: 'Scamopedia', icon: BookOpen, description: 'Types of fraud' },
     { id: 'settings', label: 'Preferences', icon: Settings, description: 'Accessibility & help' },
   ];
 
