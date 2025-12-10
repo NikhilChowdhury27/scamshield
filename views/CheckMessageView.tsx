@@ -6,7 +6,7 @@ import FollowUpChat from '../components/FollowUpChat';
 import { useScamHistory } from '../hooks/useScamHistory';
 import { useLocation } from '../context/LocationContext';
 import { useToast } from '../context/ToastContext';
-import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield, Languages, Plus, ChevronDown, Play, Pause } from 'lucide-react';
+import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Upload, ChevronRight, Shield, Languages, Plus, ChevronDown, Play, Pause, FileAudio, StopCircle } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
 
@@ -44,6 +44,7 @@ const CheckMessageView: React.FC = () => {
   const [searchResult, setSearchResult] = useState<SearchVerificationResult | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   
   const { addToast } = useToast();
   
@@ -51,12 +52,18 @@ const CheckMessageView: React.FC = () => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileInput[]>([]);
   const [language, setLanguage] = useState<string>('English');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
-  // Active input mode
-  const [activeMode, setActiveMode] = useState<'text' | 'image' | null>(null);
+  // Inline Recording State (for the unified input)
+  const [isInlineRecording, setIsInlineRecording] = useState(false);
+  const [inlineRecordingDuration, setInlineRecordingDuration] = useState(0);
+  const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const inlineAudioChunksRef = useRef<Blob[]>([]);
+  const inlineStreamRef = useRef<MediaStream | null>(null);
+  const inlineTimerRef = useRef<any>(null);
   
-  // Audio Recording state
+  // Live Monitor State (Full screen mode)
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -66,25 +73,20 @@ const CheckMessageView: React.FC = () => {
   const [riskLevel, setRiskLevel] = useState<number>(0);
   const [riskMessage, setRiskMessage] = useState<string>('');
   const [speechSupported] = useState<boolean>(typeof window !== 'undefined' && (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition));
-  const [recordedAudioFile, setRecordedAudioFile] = useState<FileInput | null>(null);
   
-  // High quality recorder for final analysis
+  // Live Monitor Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]); 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const lastAnalyzedIndexRef = useRef<number>(0);
   const analyzeTimeoutRef = useRef<number | null>(null);
-  
-  // Transcription batching refs
   const transcriptBufferRef = useRef<string>('');
   const transcriptUpdateTimerRef = useRef<number | null>(null);
-  
-  // Live API refs
   const liveSessionRef = useRef<any>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
-  
   const timerRef = useRef<any>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null); 
   const transcriptBoxRef = useRef<HTMLDivElement>(null);
@@ -97,10 +99,7 @@ const CheckMessageView: React.FC = () => {
   const threeSceneRef = useRef<THREE.Scene | null>(null);
   const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sphereMeshRef = useRef<THREE.Points | null>(null);
-  const sparkMeshRef = useRef<THREE.Points | null>(null);
   const originalPositionsRef = useRef<Float32Array | null>(null);
-
-
   
   const lastActivityTimeRef = useRef<number>(0);
 
@@ -111,21 +110,81 @@ const CheckMessageView: React.FC = () => {
     return () => {
       cleanupAudioResources();
       stopSpeechRecognition();
+      cleanupInlineRecording();
     };
   }, []);
 
-  useEffect(() => {
-      if (transcriptBoxRef.current) {
-          transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
-      }
-  }, [liveTranscript, transcriptPreview]);
+  // --- Inline Recording Logic ---
 
-  // Flush accumulated transcriptions to UI every 5 seconds
+  const startInlineRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      inlineStreamRef.current = stream;
+      
+      const mediaRecorder = new MediaRecorder(stream);
+      inlineMediaRecorderRef.current = mediaRecorder;
+      inlineAudioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          inlineAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsInlineRecording(true);
+      setInlineRecordingDuration(0);
+      
+      inlineTimerRef.current = setInterval(() => {
+        setInlineRecordingDuration(prev => prev + 1);
+      }, 1000);
+
+    } catch (err: any) {
+      console.error("Inline recording error:", err);
+      addToast("Could not access microphone. Please check permissions.", "error");
+    }
+  };
+
+  const stopInlineRecording = () => {
+    if (inlineMediaRecorderRef.current && isInlineRecording) {
+      inlineMediaRecorderRef.current.onstop = () => {
+        const mimeType = inlineMediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(inlineAudioChunksRef.current, { type: mimeType });
+        const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
+        const audioFile = new File([audioBlob], `voice_note_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
+        
+        const newFile: FileInput = {
+          file: audioFile,
+          previewUrl: URL.createObjectURL(audioBlob),
+          type: 'audio'
+        };
+        
+        setFiles(prev => [...prev, newFile]);
+        cleanupInlineRecording();
+      };
+      inlineMediaRecorderRef.current.stop();
+    } else {
+      cleanupInlineRecording();
+    }
+  };
+
+  const cleanupInlineRecording = () => {
+    if (inlineTimerRef.current) clearInterval(inlineTimerRef.current);
+    if (inlineStreamRef.current) {
+        inlineStreamRef.current.getTracks().forEach(track => track.stop());
+        inlineStreamRef.current = null;
+    }
+    setIsInlineRecording(false);
+    setInlineRecordingDuration(0);
+    inlineMediaRecorderRef.current = null;
+    inlineAudioChunksRef.current = [];
+  };
+
+  // --- Live Monitor Logic ---
+
   const flushTranscriptBuffer = () => {
     if (transcriptBufferRef.current.trim()) {
-      // Preserve newlines and speaker formatting
       const accumulatedText = transcriptBufferRef.current.trim() + '\n';
-      console.log('[Gemini Transcription - Batched]:', accumulatedText);
       setLiveTranscript(prev => prev + accumulatedText);
       setLiveTranscriptFinal(prev => prev + accumulatedText);
       evaluateRisk(accumulatedText);
@@ -134,23 +193,18 @@ const CheckMessageView: React.FC = () => {
     }
   };
 
-  // Start the periodic flush timer
   const startTranscriptFlushTimer = () => {
-    if (transcriptUpdateTimerRef.current) {
-      clearInterval(transcriptUpdateTimerRef.current);
-    }
+    if (transcriptUpdateTimerRef.current) clearInterval(transcriptUpdateTimerRef.current);
     transcriptUpdateTimerRef.current = window.setInterval(() => {
       flushTranscriptBuffer();
-    }, 5000); // Update every 5 seconds
+    }, 5000);
   };
 
-  // Stop the flush timer
   const stopTranscriptFlushTimer = () => {
     if (transcriptUpdateTimerRef.current) {
       clearInterval(transcriptUpdateTimerRef.current);
       transcriptUpdateTimerRef.current = null;
     }
-    // Flush any remaining buffer
     flushTranscriptBuffer();
   };
 
@@ -163,17 +217,6 @@ const CheckMessageView: React.FC = () => {
     setLiveTranscriptInterim('');
   };
 
-  const scrollTranscriptToBottom = () => {
-    if (transcriptBoxRef.current) {
-      transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
-    }
-  };
-
-  const getSpeechRecognitionCtor = () => {
-    if (typeof window === 'undefined') return undefined;
-    return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  };
-
   const shouldAnalyze = (transcript: string) => {
     const newText = transcript.slice(lastAnalyzedIndexRef.current);
     return DANGER_KEYWORDS.some(keyword => newText.toLowerCase().includes(keyword));
@@ -184,7 +227,7 @@ const CheckMessageView: React.FC = () => {
     analyzeTimeoutRef.current = window.setTimeout(async () => {
       try {
         lastAnalyzedIndexRef.current = transcript.length;
-        await analyzeContent(transcript, [], getLocationString()); // lightweight check
+        await analyzeContent(transcript, [], getLocationString());
         setRiskLevel(prev => Math.min(1, prev + 0.1));
       } catch (err) {
         console.error('Live chunk analysis failed', err);
@@ -210,7 +253,7 @@ const CheckMessageView: React.FC = () => {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
-    const SpeechCtor: any = getSpeechRecognitionCtor();
+    const SpeechCtor: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechCtor) return;
     const recognition: SpeechRecognition = new SpeechCtor();
     recognition.continuous = true;
@@ -234,7 +277,6 @@ const CheckMessageView: React.FC = () => {
         evaluateRisk(finalChunk);
       }
       setLiveTranscriptInterim(interim);
-      scrollTranscriptToBottom();
     };
 
     recognition.onerror = () => {
@@ -252,18 +294,11 @@ const CheckMessageView: React.FC = () => {
   const cleanupAudioResources = () => {
     stopVisualizer();
     if (timerRef.current) clearInterval(timerRef.current);
-    
-    // Stop transcript flush timer
     stopTranscriptFlushTimer();
 
-    // Close Live API Session
     if (liveSessionRef.current) {
-      try {
-        liveSessionRef.current.close();
-      } catch (e) {
-        console.error("Error closing live session", e);
-      }
-        liveSessionRef.current = null;
+      try { liveSessionRef.current.close(); } catch (e) { console.error(e); }
+      liveSessionRef.current = null;
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -277,26 +312,42 @@ const CheckMessageView: React.FC = () => {
         processorRef.current.disconnect();
         processorRef.current = null;
     }
+    
+    if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Unified Input Handlers ---
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles: FileInput[] = Array.from(e.target.files).map((file: File) => ({
         file,
         previewUrl: URL.createObjectURL(file),
-        type: file.type.startsWith('audio') ? 'audio' : 'image',
+        type: 'image',
       }));
       setFiles((prev) => [...prev, ...newFiles]);
-      setActiveMode('image');
+    }
+  };
+
+  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles: FileInput[] = Array.from(e.target.files).map((file: File) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+        type: 'audio',
+      }));
+      setFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
   const removeFile = (index: number) => {
     setFiles((prev) => {
       const newFiles = prev.filter((_, i) => i !== index);
-      if (newFiles.length === 0 && !text) {
-        setActiveMode(null);
-      }
+      // Clean up URL to prevent memory leaks
+      URL.revokeObjectURL(prev[index].previewUrl);
       return newFiles;
     });
   };
@@ -306,6 +357,8 @@ const CheckMessageView: React.FC = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // --- Visualizer & Live Monitor ---
 
   const startVisualizer = (stream: MediaStream) => {
     if (!canvasContainerRef.current) return;
@@ -341,9 +394,8 @@ const CheckMessageView: React.FC = () => {
     const colors = new Float32Array(particleCount * 3);
     const originalPositions = new Float32Array(particleCount * 3);
     
-    const colorTop = new THREE.Color(0xF97316);    // Orange (Current Style)
-    const colorBottom = new THREE.Color(0x0592F0);  // Sky Blue (Complementary)
-
+    const colorTop = new THREE.Color(0xF97316);
+    const colorBottom = new THREE.Color(0x0592F0);
     const radius = 0.75;
 
     for (let i = 0; i < particleCount; i++) {
@@ -376,11 +428,11 @@ const CheckMessageView: React.FC = () => {
 
     const material = new THREE.PointsMaterial({
       size: 0.01,
-        vertexColors: true,
-        transparent: true,
+      vertexColors: true,
+      transparent: true,
       opacity: 0.9,
       blending: THREE.AdditiveBlending,
-        depthWrite: false,
+      depthWrite: false,
     });
 
     const sphere = new THREE.Points(geometry, material);
@@ -398,12 +450,11 @@ const CheckMessageView: React.FC = () => {
       sphereMeshRef.current.rotation.y = time * 0.15;
       sphereMeshRef.current.rotation.z = time * 0.05;
 
-      // Audio reactive "breathing" and waves
-        let sum = 0;
+      let sum = 0;
       const lowerRange = Math.floor(bufferLength * 0.4);
       for (let i = 0; i < lowerRange; i++) sum += dataArray[i];
       const volume = lowerRange > 0 ? sum / lowerRange : 0;
-        const normVol = volume / 255;
+      const normVol = volume / 255;
 
       const breathing = Math.sin(time * 2) * 0.05 + 1.0 + (normVol * 0.1);
       sphereMeshRef.current.scale.set(breathing, breathing, breathing);
@@ -411,32 +462,23 @@ const CheckMessageView: React.FC = () => {
       const positions = sphereMeshRef.current.geometry.attributes.position.array as Float32Array;
       const original = originalPositionsRef.current;
 
-      // Dynamic noise/wave effect
       if (volume > 10) {
         for (let i = 0; i < particleCount; i++) {
           const ix = i * 3;
           const x = original[ix];
           const y = original[ix + 1];
           const z = original[ix + 2];
-
-          // Simple wave based on y-position and time
           const wave = Math.sin(y * 5 + time * 3) * 0.1 * normVol;
-
-          // Noise-like randomness based on index
           const noise = Math.sin(i * 0.1 + time * 5) * 0.05 * normVol;
-
           const scale = 1 + wave + noise;
-
           positions[ix] = x * scale;
           positions[ix + 1] = y * scale;
           positions[ix + 2] = z * scale;
         }
         sphereMeshRef.current.geometry.attributes.position.needsUpdate = true;
       } else {
-        // Smooth return to sphere shape
         for (let i = 0; i < particleCount; i++) {
           const ix = i * 3;
-          // Linear interpolation back to original
           positions[ix] = positions[ix] * 0.95 + original[ix] * 0.05;
           positions[ix + 1] = positions[ix + 1] * 0.95 + original[ix + 1] * 0.05;
           positions[ix + 2] = positions[ix + 2] * 0.95 + original[ix + 2] * 0.05;
@@ -444,8 +486,6 @@ const CheckMessageView: React.FC = () => {
         sphereMeshRef.current.geometry.attributes.position.needsUpdate = true;
       }
 
-
-      // Draw Waveform Equalizer
       if (waveformCanvasRef.current && analyserRef.current) {
         const canvas = waveformCanvasRef.current;
         const ctx = canvas.getContext('2d');
@@ -453,82 +493,59 @@ const CheckMessageView: React.FC = () => {
           const w = canvas.width;
           const h = canvas.height;
           ctx.clearRect(0, 0, w, h);
-
-          const barCount = 48; // Increased by 50%
-          const barWidth = 2; // Reduced by 50%
-          const gap = 2; // Reduced gap to fit increased count
-          const totalWidth = barCount * (barWidth + gap);
-          const startX = (w - totalWidth) / 2;
-
-          // Use frequency data for visualizer
+          const barCount = 48;
+          const barWidth = 2;
+          const gap = 2;
+          const startX = (w - (barCount * (barWidth + gap))) / 2;
           const frequencyData = new Uint8Array(barCount);
-          // Get lower frequency range which usually has voice
           const step = Math.floor(bufferLength / barCount / 2);
 
           for (let i = 0; i < barCount; i++) {
             let val = 0;
-            for (let j = 0; j < step; j++) {
-              val += dataArray[i * step + j];
-            }
+            for (let j = 0; j < step; j++) val += dataArray[i * step + j];
             frequencyData[i] = val / step;
           }
 
-          ctx.fillStyle = '#60A5FA'; // Blue-400
-
+          ctx.fillStyle = '#60A5FA';
           for (let i = 0; i < barCount; i++) {
-            // Normalized height 0.0 to 1.0
             const percent = frequencyData[i] / 255;
-            // Make it symmetrical/centered vertically
-            const height = Math.max(4, percent * h * 0.8); // Min height 4px
-
+            const height = Math.max(4, percent * h * 0.8);
             const x = startX + i * (barWidth + gap);
             const y = (h - height) / 2;
-
-            // Fade out effect at edges
             const fromCenter = Math.abs(i - barCount / 2) / (barCount / 2);
             ctx.globalAlpha = Math.max(0, 1 - Math.pow(fromCenter, 3));
-
-            // Draw rounded bar
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, height, 4);
             ctx.fill();
           }
-          ctx.globalAlpha = 1; // Reset opacity
+          ctx.globalAlpha = 1;
         }
       }
-
-
-        renderer.render(scene, camera);
+      renderer.render(scene, camera);
     };
-
     animate();
   };
 
   const stopVisualizer = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    
     if (threeRendererRef.current && canvasContainerRef.current) {
         if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
             canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
         }
         threeRendererRef.current.dispose();
     }
-
     if (sphereMeshRef.current) {
         sphereMeshRef.current.geometry.dispose();
         (sphereMeshRef.current.material as THREE.Material).dispose();
     }
-
     if (visualizerContextRef.current) {
       visualizerContextRef.current.close();
       visualizerContextRef.current = null;
     }
-    
     threeSceneRef.current = null;
     threeCameraRef.current = null;
     threeRendererRef.current = null;
     sphereMeshRef.current = null;
-    sparkMeshRef.current = null;
     originalPositionsRef.current = null;
   };
 
@@ -542,6 +559,7 @@ const CheckMessageView: React.FC = () => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream; 
       
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -559,70 +577,49 @@ const CheckMessageView: React.FC = () => {
         const ai = new GoogleGenAI({ apiKey });
       
         const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      inputAudioContextRef.current = inputCtx;
-      
-      const source = inputCtx.createMediaStreamSource(stream);
-      const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
-      processorRef.current = scriptProcessor;
+        inputAudioContextRef.current = inputCtx;
+        
+        const source = inputCtx.createMediaStreamSource(stream);
+        const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
+        processorRef.current = scriptProcessor;
 
-      const sessionPromise = ai.live.connect({
-        // Use gemini-2.5-flash-native-audio-preview-09-2025 for Live API
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-        config: {
-            // Must use AUDIO modality. Text only is invalid for this model.
+        const sessionPromise = ai.live.connect({
+          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+          config: {
             responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
-            },
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
             inputAudioTranscription: {},
             systemInstruction: "You are a passive listener. Do not speak. Do not respond to questions. Just remain silent so that the system can transcribe the user input."
-        },
-        callbacks: {
+          },
+          callbacks: {
             onopen: () => {
-                console.log('[Gemini Live Session] Opened successfully');
                 scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
                     const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
                     const pcmBlob = createBlob(inputData);
-                    sessionPromise.then((session) => {
-                         session.sendRealtimeInput({ media: pcmBlob });
-                    });
+                    sessionPromise.then((session) => { session.sendRealtimeInput({ media: pcmBlob }); });
                 };
                 source.connect(scriptProcessor);
                 scriptProcessor.connect(inputCtx.destination);
             },
             onmessage: (message: LiveServerMessage) => {
-                lastActivityTimeRef.current = performance.now();
-                // console.log('[Gemini Live Message]', message);
-
-                const transcript =
-                  message.serverContent?.inputTranscription?.text ||
-                  (message.serverContent as any)?.outputText ||
-                  (message as any)?.text ||
-                  '';
-
+                const transcript = message.serverContent?.inputTranscription?.text || (message.serverContent as any)?.outputText || (message as any)?.text || '';
                 if (transcript) {
-                    // Accumulate transcriptions in buffer (will be flushed every 5 seconds)
                     transcriptBufferRef.current += transcript + '\n';
-                    console.log('[Gemini Transcription - Received]:', transcript);
                     setTranscriptPreview(transcriptBufferRef.current.trim());
                 }
             },
-            onclose: () => {
-                console.log('[Gemini Live Session] Closed');
-            },
+            onclose: () => { console.log('[Gemini Live Session] Closed'); },
             onerror: (err) => {
                 console.error("[Gemini Live Session] Error:", err);
                 const msg = `Transcription error: ${err.message || 'Unknown error'}`;
                 setError(msg);
                 addToast(msg, 'error');
             }
-        }
-      });
+          }
+        });
 
-        // Store the session promise so we can close it later
         sessionPromise.then(session => {
           liveSessionRef.current = session;
-          // Start the transcript flush timer for batched updates
           transcriptBufferRef.current = '';
           startTranscriptFlushTimer();
         });
@@ -653,14 +650,12 @@ const CheckMessageView: React.FC = () => {
 
   const stopAndAnalyze = () => {
     stopSpeechRecognition();
-    // Stop the flush timer and flush any remaining buffer
     stopTranscriptFlushTimer();
     if (mediaRecorderRef.current && isRecordingMode) {
       mediaRecorderRef.current.onstop = () => {
          const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
          const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
-         // Create a File object from the Blob
          const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
          
          const newFile: FileInput = {
@@ -668,9 +663,9 @@ const CheckMessageView: React.FC = () => {
             previewUrl: URL.createObjectURL(audioBlob),
             type: 'audio'
           };
-         setRecordedAudioFile(newFile);
-          cleanupAudioResources();
          setIsRecordingMode(false);
+         cleanupAudioResources();
+         analyzeDirectly(newFile);
       };
       mediaRecorderRef.current.stop();
     } else {
@@ -681,7 +676,6 @@ const CheckMessageView: React.FC = () => {
 
   const cancelRecording = () => {
     stopSpeechRecognition();
-    // Stop the flush timer and clear buffer
     stopTranscriptFlushTimer();
     transcriptBufferRef.current = '';
     cleanupAudioResources();
@@ -694,6 +688,8 @@ const CheckMessageView: React.FC = () => {
 
   const analyzeDirectly = async (audioFile: FileInput, additionalText?: string, additionalFiles?: FileInput[]) => {
       setIsLoading(true);
+      setRecordedAudioUrl(audioFile.previewUrl);
+      
       try {
         const languageContext = language ? `[DETECTED LANGUAGE]: ${language}\n` : "";
         const contextText = liveTranscript ? `${languageContext}[PARTIAL TRANSCRIPT FROM LIVE SESSION]: ${liveTranscript}` : languageContext;
@@ -706,7 +702,6 @@ const CheckMessageView: React.FC = () => {
         setAnalysis(result.analysis);
         setSearchResult(searchVerification);
         addToHistory({ ...result.analysis }); 
-        setRecordedAudioFile(null);
         setText('');
         setFiles([]);
       } catch (err: any) {
@@ -724,6 +719,7 @@ const CheckMessageView: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setRecordedAudioUrl(null);
     try {
       const [result, searchVerification] = await Promise.all([
           analyzeContent(text, files, getLocationString()),
@@ -753,168 +749,28 @@ const CheckMessageView: React.FC = () => {
     setLiveTranscriptInterim('');
     setTranscriptPreview('');
     setIsRecordingMode(false);
-    setActiveMode(null);
-    setRecordedAudioFile(null);
+    setRecordedAudioUrl(null);
   };
 
   const hasContent = text.trim() || files.length > 0;
 
-  // Show form to add text/screenshots after recording
-  if (recordedAudioFile) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-8 animate-slide-up pb-10">
-        {/* Header & Audio Review */}
-        <div className="bg-surface dark:bg-surface-dark rounded-3xl p-8 border border-border dark:border-border-dark shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-red-500" />
-            <div className="flex flex-col md:flex-row gap-6 items-center">
-                 {/* Icon/Visual */}
-                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-100 to-red-50 dark:from-orange-900/30 dark:to-red-900/20 flex items-center justify-center flex-shrink-0">
-                    <Mic className="w-8 h-8 text-orange-600 dark:text-orange-400" />
-                 </div>
-                 
-                 <div className="flex-grow text-center md:text-left">
-                    <h2 className="text-2xl font-display font-bold text-txt dark:text-txt-dark mb-1">
-                        Recording Complete
-                    </h2>
-                    <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">
-                        Review your audio before analyzing
-                    </p>
-                    <audio 
-                        controls 
-                        key={recordedAudioFile.previewUrl}
-                        src={recordedAudioFile.previewUrl} 
-                        className="w-full h-12 rounded-xl bg-stone-100 dark:bg-stone-800 px-2"
-                    />
-                 </div>
-            </div>
-        </div>
-
-        {/* Additional Details Grid */}
-        <div className="grid md:grid-cols-2 gap-6">
-            
-            {/* Language & Text */}
-            <div className="space-y-6">
-                <div className="bg-surface dark:bg-surface-dark rounded-3xl p-6 border border-border dark:border-border-dark shadow-sm h-full">
-                     <div className="flex items-center gap-2 mb-4 text-txt dark:text-txt-dark font-bold">
-                        <Languages className="w-5 h-5 text-orange-500" />
-                        <h3>Language &amp; Context</h3>
-                     </div>
-
-                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">
-                                Spoken Language
-                            </label>
-                            <div className="relative">
-                                <select 
-                                    value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
-                                    className="w-full p-3 pl-4 pr-10 rounded-xl bg-stone-50 dark:bg-stone-800 border-none focus:ring-2 focus:ring-orange-500/20 text-txt dark:text-txt-dark appearance-none font-medium cursor-pointer transition-shadow hover:bg-stone-100 dark:hover:bg-stone-700"
-                                >
-                                    <option>English</option>
-                                    <option>Spanish</option>
-                                    <option>French</option>
-                                    <option>German</option>
-                                    <option>Hindi</option>
-                                    <option>Mandarin</option>
-                                    <option>Japanese</option>
-                                    <option>Other</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">
-                                Additional Notes (Optional)
-                            </label>
-                            <textarea
-                                value={text}
-                                onChange={(e) => setText(e.target.value)}
-                                placeholder="Paste any suspicious text or numbers mentioned..."
-                                className="w-full p-4 rounded-xl bg-stone-50 dark:bg-stone-800 border-none focus:ring-2 focus:ring-orange-500/20 text-txt dark:text-txt-dark min-h-[120px] resize-none placeholder-stone-400 dark:placeholder-stone-500 text-sm"
-                            />
-                        </div>
-                     </div>
-                </div>
-            </div>
-
-            {/* Evidence / Screenshots */}
-            <div className="bg-surface dark:bg-surface-dark rounded-3xl p-6 border border-border dark:border-border-dark shadow-sm flex flex-col">
-                 <div className="flex items-center gap-2 mb-4 text-txt dark:text-txt-dark font-bold">
-                    <ImageIcon className="w-5 h-5 text-blue-500" />
-                    <h3>Evidence Screenshots</h3>
-                 </div>
-                 
-                 <div className="flex-grow">
-                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                        {files.map((file, idx) => (
-                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
-                                 <img src={file.previewUrl} className="w-full h-full object-cover" />
-                                 <button onClick={() => removeFile(idx)} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <X className="w-3 h-3" />
-                                 </button>
-                            </div>
-                        ))}
-                        
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="aspect-square rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-700 hover:border-blue-400 dark:hover:border-blue-500 flex flex-col items-center justify-center gap-2 transition-colors group bg-stone-50 dark:bg-stone-800/50"
-                        >
-                            <div className="p-2 bg-stone-200 dark:bg-stone-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                <Plus className="w-5 h-5 text-stone-500 dark:text-stone-400 group-hover:text-blue-500" />
-                            </div>
-                            <span className="text-xs font-medium text-stone-500 dark:text-stone-400 group-hover:text-blue-500 hidden sm:block">Add</span>
-                        </button>
-                     </div>
-                     <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleFileChange}
-                        className="hidden"
-                     />
-                     <p className="text-xs text-stone-400 mt-4 leading-relaxed">
-                        Upload screenshots of messages, emails, or caller IDs related to this recording.
-                     </p>
-                 </div>
-            </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-4 pt-4 border-t border-stone-200 dark:border-stone-800">
-            <button
-                onClick={() => {
-                  setRecordedAudioFile(null);
-                  setText('');
-                  setFiles([]);
-                  setLiveTranscript('');
-                }}
-                className="px-6 py-3 rounded-xl font-bold text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 transition-colors"
-            >
-                Discard
-            </button>
-            <button
-                onClick={() => analyzeDirectly(recordedAudioFile, text, files)}
-                disabled={isLoading}
-                className="px-8 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold shadow-lg shadow-orange-500/20 transform active:scale-95 transition-all flex items-center gap-2"
-            >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="animate-spin w-5 h-5" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-5 h-5" />
-                    Analyze Recording
-                  </>
-                )}
-            </button>
-        </div>
-      </div>
-    );
+  // Loading Screen
+  if (isLoading) {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in text-center space-y-6">
+              <div className="relative w-24 h-24">
+                  <div className="absolute inset-0 rounded-full border-4 border-stone-200 dark:border-stone-800"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-t-orange-500 animate-spin"></div>
+                  <Shield className="absolute inset-0 m-auto w-10 h-10 text-orange-500 animate-pulse" />
+              </div>
+              <div>
+                  <h3 className="text-2xl font-bold text-txt dark:text-txt-dark mb-2">Analyzing...</h3>
+                  <p className="text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
+                      Our AI is checking for scam patterns, known threats, and suspicious language.
+                  </p>
+              </div>
+          </div>
+      )
   }
 
   if (analysis) {
@@ -927,12 +783,18 @@ const CheckMessageView: React.FC = () => {
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           Check Another Message
         </button>
-        <ResultCard analysis={analysis} searchResult={searchResult} timestamp={Date.now()} />
+        <ResultCard 
+            analysis={analysis} 
+            searchResult={searchResult} 
+            timestamp={Date.now()} 
+            userInputs={{ text, files, recordedAudioUrl: recordedAudioUrl || undefined }}
+        />
         <FollowUpChat analysis={analysis} />
       </div>
     );
   }
 
+  // Full Screen Live Monitor
   if (isRecordingMode) {
       return (
       <div className="fixed inset-0 md:left-72 z-50 bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
@@ -945,7 +807,7 @@ const CheckMessageView: React.FC = () => {
             id="aura-spline"
             className="w-full h-full rotate-180 invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0"
           />
-                  </div>
+        </div>
         <button
           onClick={cancelRecording}
           className="absolute top-10 right-6 p-3 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition-all backdrop-blur-sm border border-stone-200 dark:border-white/20 z-50"
@@ -953,42 +815,31 @@ const CheckMessageView: React.FC = () => {
         >
           <X className="w-5 h-5" />
         </button>
-        {/* Simple, elegant header */}
         <div className="text-center z-20 mt-8 mb-4 max-w-2xl flex-shrink-0">
           <h2 className="text-2xl md:text-3xl font-body font-normal text-txt dark:text-white tracking-wide">
             Go ahead. I'm listening
           </h2>
         </div>
-
-        {/* Large centered visualizer */}
         <div className="relative flex-1 w-full max-w-6xl min-h-0 flex items-center justify-center">
-                      <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
-                      </div>
-
-        {/* Minimal action buttons at bottom */}
+            <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
+        </div>
         <div className="flex flex-col items-center gap-6 z-20 mb-8 mt-4 flex-shrink-0">
-          {/* Waveform Equalizer */}
-          <canvas
-            ref={waveformCanvasRef}
-            width={400}
-            height={40}
-            className="w-96 h-10 opacity-80"
-          />
-
+          <canvas ref={waveformCanvasRef} width={400} height={40} className="w-96 h-10 opacity-80" />
           <button
             onClick={stopAndAnalyze}
             className="px-6 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-medium transition-all shadow-lg hover:shadow-red-500/25 border border-red-500 text-sm flex items-center gap-2"
           >
             <div className="w-3 h-3 bg-white rounded-sm animate-pulse" />
-                          Stop & Analyze
-                      </button>
-              </div>
-          </div>
+            Stop & Analyze
+          </button>
+        </div>
+      </div>
       )
   }
 
+  // --- Main Render: Unified Dashboard ---
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       {/* Hero Section */}
       <div className="text-center animate-slide-up">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-semibold mb-6 border border-orange-200/50 dark:border-orange-700/30">
@@ -1004,279 +855,185 @@ const CheckMessageView: React.FC = () => {
         </p>
       </div>
 
-      {/* Error Message */}
-          {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl shadow-sm animate-scale-in">
-          <p className="font-bold flex items-center gap-2">
-            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-            Error
-          </p>
-          <p className="mt-1 text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl shadow-sm animate-scale-in flex items-center gap-3">
+          <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full">
+             <X className="w-4 h-4" />
+          </div>
+          <div>
+             <p className="font-bold">Error</p>
+             <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
 
-      {/* Main Input Section */}
-      <div className="space-y-6 animate-slide-up stagger-1">
+      {/* Main Actions Container */}
+      <div className="space-y-6 animate-slide-up stagger-1 max-w-3xl mx-auto">
 
-        {/* Live Call Monitor - Featured Card */}
+        {/* Live Call Monitor Card - Priority Action */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r rounded-3xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity"></div>
-                  <button
-                    type="button"
-                    onClick={startRecording}
+          <button
+            type="button"
+            onClick={startRecording}
             className="relative w-full bg-gradient-to-br from-stone-900 to-stone-800 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-6 text-left cursor-pointer overflow-hidden border border-stone-700/50 hover:border-orange-500/50 transition-all btn-press"
           >
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-5">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                backgroundSize: '32px 32px'
-              }}></div>
-                        </div>
-
-            {/* Animated waves */}
-            <div className="absolute right-0 top-0 bottom-0 w-1/3 overflow-hidden opacity-20">
+            <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_2px_2px,white_1px,transparent_0)] bg-[length:32px_32px]"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-1/3 overflow-hidden opacity-20 pointer-events-none">
               <div className="absolute inset-0 flex items-center justify-center">
                 {[...Array(3)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-64 h-64 border-2 border-orange-500 rounded-full animate-ping"
-                    style={{ animationDuration: `${2 + i * 0.5}s`, animationDelay: `${i * 0.3}s`, opacity: 0.3 - i * 0.1 }}
-                  ></div>
+                  <div key={i} className="absolute w-64 h-64 border-2 border-orange-500 rounded-full animate-ping" style={{ animationDuration: `${2 + i * 0.5}s`, animationDelay: `${i * 0.3}s`, opacity: 0.3 - i * 0.1 }}></div>
                 ))}
-                     </div>
+              </div>
             </div>
 
             <div className="relative flex items-center gap-6">
-              {/* Icon */}
               <div className="relative flex-shrink-0">
                 <div className="absolute inset-0 bg-gradient-to-br rounded-2xl blur-xl opacity-50"></div>
-                <div className="relative w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Mic className="w-10 h-10 text-white" strokeWidth={1.5} />
+                <div className="relative w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Mic className="w-8 h-8 text-white" strokeWidth={1.5} />
                 </div>
               </div>
-
-              {/* Content */}
-                     <div className="flex-grow">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-md uppercase tracking-wider">
-                    Live
-                  </span>
-                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-md uppercase tracking-wider">
-                    Recommended
-                  </span>
+              <div className="flex-grow">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-md uppercase tracking-wider">Live Analysis</span>
                 </div>
-                <h3 className="text-2xl font-display font-bold text-white mb-2">
-                  Monitor a Phone Call
-                </h3>
-                <p className="text-stone-300 text-base leading-relaxed">
-                  Select Monitor Phone Call, and answer your incoming call. Turn on speaker mode and ScamShield will listen and detect scam patterns instantly.
-                </p>
-             </div>
-
-              {/* Arrow */}
-              <div className="hidden md:flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
-                <ChevronRight className="w-6 h-6 text-white" />
+                <h3 className="text-xl font-display font-bold text-white mb-1">Monitor a Phone Call</h3>
+                <p className="text-stone-300 text-sm">Select Monitor Phone Call, and answer your incoming call. Turn on speaker mode and ScamShield will listen and detect scam patterns instantly.</p>
               </div>
-                     </div>
-                  </button>
+              <div className="hidden sm:flex items-center justify-center w-10 h-10 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
+                <ChevronRight className="w-5 h-5 text-white" />
               </div>
+            </div>
+          </button>
+        </div>
 
         {/* Divider */}
         <div className="flex items-center gap-4 py-2">
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
-          <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or paste and upload content</span>
+          <span className="text-stone-400 dark:text-stone-500 font-medium text-xs uppercase tracking-widest">OR paste/upload content below</span>
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
-              </div>
+        </div>
 
-        {/* Input Mode Selector */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Text Input Card */}
-                 <button
-                    type="button"
-            onClick={() => setActiveMode('text')}
-            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${activeMode === 'text'
-              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
-              : 'border-stone-700 bg-surface dark:bg-surface-dark hover:border-orange-500/50'
-              }`}
-          >
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${activeMode === 'text'
-              ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
-              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
-              }`}>
-              <FileText className="w-7 h-7" strokeWidth={1.5} />
-            </div>
-            <h4 className={`text-lg font-bold mb-1 ${activeMode === 'text' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
-              }`}>
-              Paste Text Content
-            </h4>
-            <p className="text-sm text-stone-500 dark:text-stone-400">
-              Paste any email, SMS, or suspicious text for analysis
-            </p>
-            {activeMode === 'text' && (
-              <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full"></div>
-            )}
-                 </button>
+        {/* Unified Input Composer */}
+        <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark shadow-sm overflow-hidden transition-all focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500/50">
+            
+            {/* Text Input Area */}
+            <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={isInlineRecording ? "" : "Paste the message, email, or suspicious text here..."}
+                disabled={isInlineRecording}
+                className={`w-full p-6 bg-transparent resize-none outline-none text-lg text-txt dark:text-txt-dark placeholder-stone-400 dark:placeholder-stone-600 transition-all ${isInlineRecording ? 'h-0 opacity-0 p-0' : 'min-h-[140px]'}`}
+            />
 
-          {/* Image Upload Card */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveMode('image');
-              fileInputRef.current?.click();
-            }}
-            className={`relative p-6 rounded-2xl border-2 transition-all text-left group btn-press ${activeMode === 'image'
-              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-lg shadow-orange-500/10'
-              : 'border-stone-700 bg-surface dark:bg-surface-dark hover:border-orange-500/50'
-              }`}
-          >
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-colors ${activeMode === 'image'
-              ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white'
-              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 group-hover:bg-stone-200 dark:group-hover:bg-stone-700'
-              }`}>
-              <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
-              </div>
-            <h4 className={`text-lg font-bold mb-1 ${activeMode === 'image' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
-              }`}>
-              Upload Screenshot
-            </h4>
-            <p className="text-sm text-stone-500 dark:text-stone-400">
-              Upload images of emails, messages, or any suspicious content
-            </p>
-            {activeMode === 'image' && files.length > 0 && (
-              <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">{files.length}</span>
-              </div>
-            )}
-          </button>
-          </div>
-
-        {/* Hidden File Input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*,audio/*"
-            multiple
-            className="hidden"
-          />
-
-        {/* Expanded Input Area */}
-        {activeMode && (
-          <div className="animate-scale-in">
-            {activeMode === 'text' && (
-              <div className="bg-surface dark:bg-surface-dark rounded-2xl border border-border dark:border-border-dark p-1 shadow-lg">
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder="Paste the suspicious message here...
-
-Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell mom and dad. Send it to this account...'"
-                  className="w-full h-48 p-5 text-lg bg-transparent text-txt dark:text-txt-dark focus:outline-none resize-none placeholder-stone-400 dark:placeholder-stone-600"
-                  autoFocus
-                />
-                <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100 dark:border-stone-800">
-                  <span className="text-sm text-stone-400">
-                    {text.length > 0 ? `${text.length} characters` : 'Type or paste your message'}
-                  </span>
-                  {text && (
-                    <button
-                      onClick={() => setText('')}
-                      className="text-sm text-stone-400 hover:text-red-500 transition-colors"
+            {/* Inline Recorder UI */}
+            {isInlineRecording && (
+                <div className="p-8 bg-red-50 dark:bg-red-900/10 flex flex-col items-center justify-center gap-4 animate-fade-in border-b border-red-100 dark:border-red-900/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-2xl font-mono font-bold text-red-600 dark:text-red-400">
+                            {formatTime(inlineRecordingDuration)}
+                        </span>
+                    </div>
+                    <p className="text-sm text-red-500 dark:text-red-400 font-medium">Recording voice note...</p>
+                    <button 
+                        onClick={stopInlineRecording}
+                        className="flex items-center gap-2 px-6 py-2 bg-white dark:bg-red-950 text-red-600 dark:text-red-400 rounded-full text-sm font-bold shadow-sm border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
                     >
-                      Clear
+                        <StopCircle className="w-4 h-4" />
+                        Stop & Add
                     </button>
-                  )}
                 </div>
-              </div>
             )}
 
-            {activeMode === 'image' && (
-              <div className="bg-surface dark:bg-surface-dark rounded-2xl border border-border dark:border-border-dark p-6 shadow-lg">
-                {files.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {files.map((file, index) => (
-                        <div key={index} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
-                          {file.type === 'image' ? (
-                            <img
-                              src={file.previewUrl}
-                              alt={file.file.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Mic className="w-12 h-12 text-stone-400" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button
-                              onClick={() => removeFile(index)}
-                              className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
+            {/* Attachments Preview */}
+            {files.length > 0 && (
+                <div className="px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {files.map((file, idx) => (
+                        <div key={idx} className="relative group rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 aspect-video flex items-center justify-center">
+                            {file.type === 'image' ? (
+                                <img src={file.previewUrl} className="w-full h-full object-cover" alt="Preview" />
+                            ) : (
+                                <div className="flex flex-col items-center gap-1 p-2 text-center">
+                                    <FileAudio className="w-6 h-6 text-orange-500" />
+                                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate max-w-[100px]">{file.file.name}</span>
+                                </div>
+                            )}
+                            <button 
+                                onClick={() => removeFile(idx)} 
+                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
                             >
-                              <Trash2 className="w-5 h-5" />
-                          </button>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
-                            <p className="text-white text-xs truncate">{file.file.name}</p>
-                          </div>
-                      </div>
-                  ))}
-
-                      {/* Add More Button */}
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="aspect-square rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 hover:border-orange-400 dark:hover:border-orange-500 flex flex-col items-center justify-center gap-2 transition-colors group"
-                      >
-                        <Upload className="w-8 h-8 text-stone-400 group-hover:text-orange-500 transition-colors" />
-                        <span className="text-sm text-stone-400 group-hover:text-orange-500 transition-colors">Add more</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-48 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-xl hover:border-orange-400 dark:hover:border-orange-500 flex flex-col items-center justify-center gap-3 transition-all group"
-                  >
-                    <div className="p-4 bg-stone-100 dark:bg-stone-800 rounded-xl group-hover:bg-orange-100 dark:group-hover:bg-orange-900/30 transition-colors">
-                      <Upload className="w-8 h-8 text-stone-400 group-hover:text-orange-500 transition-colors" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-stone-600 dark:text-stone-300 font-medium">Click to upload or drag and drop</p>
-                      <p className="text-sm text-stone-400">PNG, JPG, GIF up to 10MB</p>
-                    </div>
-                  </button>
-                )}
-              </div>
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
             )}
-              </div>
-          )}
 
-        {/* Analyze Button */}
-            <button
-                onClick={handleAnalyzeForm}
-          disabled={isLoading || !hasContent}
-          className={`w-full py-5 rounded-2xl text-xl font-bold transition-all btn-press relative overflow-hidden ${isLoading || !hasContent
+            {/* Actions Toolbar */}
+            {!isInlineRecording && (
+                <div className="px-6 py-4 bg-stone-50 dark:bg-stone-900/50 border-t border-border dark:border-border-dark flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        {/* Hidden Inputs */}
+                        <input type="file" ref={imageInputRef} onChange={handleImageChange} accept="image/*" multiple className="hidden" />
+                        <input type="file" ref={audioInputRef} onChange={handleAudioChange} accept="audio/*" multiple className="hidden" />
+                        
+                        <button 
+                            onClick={() => imageInputRef.current?.click()}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all text-sm font-medium shadow-sm"
+                        >
+                            <ImageIcon className="w-4 h-4" />
+                            <span className="hidden sm:inline">Add Photo</span>
+                        </button>
+                        <button 
+                            onClick={() => audioInputRef.current?.click()}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-200 dark:hover:border-purple-800 hover:text-purple-600 dark:hover:text-purple-400 transition-all text-sm font-medium shadow-sm"
+                        >
+                            <Upload className="w-4 h-4" />
+                            <span className="hidden sm:inline">Upload Audio</span>
+                        </button>
+                        <button 
+                            onClick={startInlineRecording}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-all text-sm font-medium shadow-sm group"
+                        >
+                            <Mic className="w-4 h-4 group-hover:animate-pulse" />
+                            <span className="hidden sm:inline">Record Audio</span>
+                        </button>
+                    </div>
+                    <div className="text-xs text-stone-400 font-medium">
+                        {text.length} chars
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* Submit Button */}
+        <button
+            onClick={handleAnalyzeForm}
+            disabled={isLoading || (!hasContent && !isInlineRecording)}
+            className={`w-full py-4 rounded-2xl text-lg font-bold transition-all btn-press relative overflow-hidden ${isLoading || (!hasContent && !isInlineRecording)
             ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
             : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
-                }`}
-            >
-                {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                    <Loader2 className="animate-spin h-6 w-6" />
-              Analyzing for scams...
-                </span>
-                ) : (
+            }`}
+        >
+            {isLoading ? (
             <span className="flex items-center justify-center gap-3">
-              <Shield className="w-6 h-6" />
-              {hasContent ? 'Analyze Now' : 'Select how you want to analyze'}
+                <Loader2 className="animate-spin h-5 w-5" />
+                Analyzing content...
             </span>
-                )}
-            </button>
+            ) : (
+            <span className="flex items-center justify-center gap-3">
+                <Shield className="w-5 h-5" />
+                {hasContent ? 'Analyze Content' : 'Add content to analyze'}
+            </span>
+            )}
+        </button>
+
       </div>
 
       {/* Trust Indicators */}
-      <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2">
+      <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2 max-w-3xl mx-auto">
         {[
           { icon: Lock, label: 'Private', desc: 'Your data stays private', color: 'emerald' },
           { icon: Zap, label: 'Instant', desc: 'Results in seconds', color: 'amber' },
@@ -1288,7 +1045,7 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
             <p className="text-xs text-stone-400">{item.desc}</p>
             </div>
         ))}
-        </div>
+      </div>
     </div>
   );
 };

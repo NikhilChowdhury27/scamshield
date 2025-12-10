@@ -5,9 +5,10 @@ import HistoryView from './views/HistoryView';
 import LearnView from './views/LearnView';
 import NewsView from './views/NewsView';
 import HelpSettingsView from './views/HelpSettingsView';
+import HowToUseView from './views/HowToUseView';
 import { useTheme } from './context/ThemeContext';
 
-type ViewType = 'check' | 'history' | 'learn' | 'news' | 'settings';
+type ViewType = 'check' | 'history' | 'learn' | 'news' | 'settings' | 'howtouse';
 type FontSize = 'small' | 'medium' | 'large';
 
 const App: React.FC = () => {
@@ -69,6 +70,8 @@ const App: React.FC = () => {
             setDarkMode={handleSetDarkMode}
           />
         );
+      case 'howtouse':
+        return <HowToUseView />;
       default:
         return <CheckMessageView />;
     }

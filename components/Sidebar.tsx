@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper, MapPin, Settings } from 'lucide-react';
+import { Shield, Clock, BookOpen, Moon, Sun, Sparkles, Newspaper, MapPin, Settings } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 
@@ -17,7 +17,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
     { id: 'history', label: 'Past Analysis', icon: Clock, description: 'View past scans' },
     { id: 'news', label: 'Scam News', icon: Newspaper, description: 'Recent scams in your area' },
     { id: 'learn', label: 'Scamopedia', icon: BookOpen, description: 'Types of fraud' },
-    { id: 'settings', label: 'Preferences', icon: Settings, description: 'Accessibility & help' },
+    { id: 'settings', label: 'Preferences', icon: Settings, description: 'Accessibility & Theme' },
+    // How to Use included for mobile nav list, but filtered via class on desktop
+    { id: 'howtouse', label: 'How to Use', icon: BookOpen, description: 'Guide & Disclaimer', mobileOnly: true },
   ];
 
   return (
@@ -62,13 +64,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
 
         {/* Navigation */}
         <nav className="h-full md:h-auto md:flex-1 p-2 md:p-4 flex justify-between md:block gap-1 md:gap-2 overflow-y-auto">
-          {navItems.map((item, index) => {
+          {navItems.map((item: any, index) => {
             const isActive = currentView === item.id;
+            // Hide mobileOnly items on desktop
+            const visibilityClass = item.mobileOnly ? 'md:hidden' : '';
+            
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-3 px-2 py-3 md:px-4 md:py-3.5 rounded-2xl transition-all font-medium relative overflow-hidden btn-press animate-slide-in min-w-0`}
+                className={`group flex-1 md:flex-none md:w-full flex items-center justify-center md:justify-start gap-3 px-2 py-3 md:px-4 md:py-3.5 rounded-2xl transition-all font-medium relative overflow-hidden btn-press animate-slide-in min-w-0 ${visibilityClass}`}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 {/* Active background */}
@@ -111,6 +116,24 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
 
         {/* Footer */}
         <div className="p-4 border-t border-border dark:border-border-dark hidden md:block space-y-4 flex-shrink-0">
+          
+          {/* How to Use - Desktop Only placement */}
+          <button
+            onClick={() => onNavigate('howtouse')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all font-medium border ${
+              currentView === 'howtouse'
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                : 'bg-stone-50 dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-100 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+            }`}
+          >
+             <div className={`p-1.5 rounded-lg ${currentView === 'howtouse' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-stone-200 dark:bg-stone-700'}`}>
+                <BookOpen className={`w-4 h-4 ${currentView === 'howtouse' ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-500 dark:text-stone-400'}`} />
+             </div>
+             <div className="flex-1 text-left">
+                <p className={`text-sm font-bold ${currentView === 'howtouse' ? 'text-emerald-900 dark:text-emerald-100' : 'text-txt dark:text-txt-dark'}`}>How to Use</p>
+                <p className="text-xs text-stone-400 dark:text-stone-500">Guide & Disclaimer</p>
+             </div>
+          </button>
           
           {/* Location Badge */}
           <div className="px-3 py-2 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800 flex items-center gap-3">

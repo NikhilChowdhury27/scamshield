@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScamAnalysis, SearchVerificationResult } from '../types';
+import { ScamAnalysis, SearchVerificationResult, FileInput } from '../types';
 import { generateSpeech } from '../services/geminiService';
 import { useToast } from '../context/ToastContext';
 import { 
@@ -21,21 +21,37 @@ import {
   Building2,
   Megaphone,
   Link as LinkIcon,
-  Send
+  Send,
+  FileText,
+  Image as ImageIcon,
+  FileAudio,
+  Maximize2,
+  X
 } from 'lucide-react';
 
 interface ResultCardProps {
   analysis: ScamAnalysis;
   searchResult?: SearchVerificationResult;
   timestamp?: number;
+  // Unified inputs
+  userInputs?: {
+    text?: string;
+    files?: FileInput[];
+    recordedAudioUrl?: string;
+  };
+  // Deprecated individual prop support for backward compat or direct usage
+  audioUrl?: string; 
 }
 
-const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timestamp }) => {
+const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timestamp, userInputs, audioUrl }) => {
   const [copiedFamilyText, setCopiedFamilyText] = useState(false);
   const [copiedContact, setCopiedContact] = useState<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const { addToast } = useToast();
+
+  const activeAudioUrl = userInputs?.recordedAudioUrl || audioUrl;
 
   const getRiskStyles = (level: string) => {
     switch (level) {
@@ -179,9 +195,86 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
     );
   };
 
+  const hasUserInputs = userInputs && (userInputs.text || (userInputs.files && userInputs.files.length > 0) || userInputs.recordedAudioUrl);
+
   return (
     <div className="w-full space-y-5 pb-32">
-      {/* Main Result Card */}
+      
+      {/* 1. Analyzed Content Summary (User Inputs) */}
+      {hasUserInputs && (
+        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-sm animate-slide-up">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-orange-500" />
+                <h3 className="text-sm font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider">Content Analyzed</h3>
+            </div>
+            
+            <div className="p-5 space-y-6">
+                {/* Text Content */}
+                {userInputs?.text && (
+                    <div className="group relative pl-4 border-l-4 border-stone-200 dark:border-stone-700 hover:border-orange-400 dark:hover:border-orange-500 transition-colors">
+                        <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed font-mono whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar">
+                            "{userInputs.text}"
+                        </p>
+                    </div>
+                )}
+
+                {/* Images Grid */}
+                {userInputs?.files && userInputs.files.filter(f => f.type === 'image').length > 0 && (
+                    <div>
+                        <p className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">Images</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {userInputs.files.filter(f => f.type === 'image').map((file, idx) => (
+                                <button 
+                                    key={idx} 
+                                    onClick={() => setSelectedImage(file.previewUrl)}
+                                    className="relative group aspect-square rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 cursor-zoom-in transition-all hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700"
+                                >
+                                    <img src={file.previewUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="User upload" />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                    <div className="absolute bottom-2 right-2 p-1.5 bg-black/60 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
+                                        <Maximize2 className="w-4 h-4 text-white" />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Audio Players (Uploaded + Recorded) */}
+                {(userInputs?.files?.some(f => f.type === 'audio') || activeAudioUrl) && (
+                    <div className="space-y-2">
+                        {/* Audio Files */}
+                        {userInputs?.files?.filter(f => f.type === 'audio').map((file, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700">
+                                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+                                    <FileAudio className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div className="flex-grow min-w-0">
+                                    <p className="text-xs font-bold text-stone-700 dark:text-stone-300 truncate">{file.file.name}</p>
+                                    <audio controls src={file.previewUrl} className="w-full h-8 mt-1" />
+                                </div>
+                            </div>
+                        ))}
+                        
+                        {/* Live Recorded Audio */}
+                        {activeAudioUrl && (
+                            <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+                                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg flex-shrink-0">
+                                    <Mic className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                </div>
+                                <div className="flex-grow min-w-0">
+                                    <p className="text-xs font-bold text-red-700 dark:text-red-300">Live Call Recording</p>
+                                    <audio controls src={activeAudioUrl} className="w-full h-8 mt-1" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+      )}
+
+      {/* 2. Main Result Card */}
       <div className={`rounded-2xl border-2 ${styles.border} ${styles.bg} overflow-hidden shadow-lg animate-scale-in`}>
         {/* Header with gradient */}
         <div className={`bg-gradient-to-r ${styles.gradient} p-5`}>
@@ -441,6 +534,27 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
           {analysis.disclaimer_for_elder}
         </p>
       </div>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in cursor-zoom-out" 
+            onClick={() => setSelectedImage(null)}
+        >
+            <button 
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-50"
+            >
+                <X className="w-6 h-6" />
+            </button>
+            <img 
+                src={selectedImage} 
+                alt="Full size view" 
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-scale-in"
+                onClick={(e) => e.stopPropagation()} 
+            />
+        </div>
+      )}
     </div>
   );
 };
