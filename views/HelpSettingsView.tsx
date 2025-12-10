@@ -15,7 +15,7 @@ const HelpSettingsView: React.FC<HelpSettingsViewProps> = ({
   setDarkMode 
 }) => {
   return (
-    <div className="space-y-10 max-w-2xl mx-auto">
+    <div className="space-y-10 max-w-2xl mx-auto pb-12">
       
       {/* Settings Section */}
       <div className="animate-slide-up">
@@ -116,41 +116,99 @@ const HelpSettingsView: React.FC<HelpSettingsViewProps> = ({
           <h2 className="text-3xl font-display font-bold text-txt dark:text-txt-dark">How to Use</h2>
         </div>
         
-        <div className="bg-surface dark:bg-surface-dark p-8 rounded-3xl border border-border dark:border-border-dark shadow-sm space-y-5">
+        <div className="bg-surface dark:bg-surface-dark p-8 rounded-3xl border border-border dark:border-border-dark shadow-sm space-y-8">
           {[
-            { num: 1, text: "If you get a strange message or call, don't reply yet." },
-            { num: 2, text: 'Open ScamShield and go to "Check Message".' },
-            { num: 3, text: "Type what they said, or upload a picture or recording." },
-            { num: 4, text: "Read our safety advice before doing anything else." }
-          ].map((step, i) => (
+            {
+              title: "Paste Text to Scan",
+              steps: [
+                "Copy any suspicious email, SMS, or message",
+                "Select \"Paste Text\" on the home screen",
+                "Paste the content into the text field",
+                "Click \"Analyze\" to get instant scam detection results"
+              ]
+            },
+            {
+              title: "Upload Screenshot to Scan",
+              steps: [
+                "Take a screenshot of the suspicious email or message",
+                "Select \"Upload Screenshot\" on the home screen",
+                "Choose the image from your device",
+                "ScamShield will analyze and flag potential scam indicators"
+              ]
+            },
+            {
+              title: "Monitor a Live Phone Call",
+              steps: [
+                "Open ScamShield and select \"Monitor Phone Call\"",
+                "Answer your incoming call",
+                "Turn on speaker mode",
+                "ScamShield will listen and detect scam patterns instantly"
+              ]
+            },
+            {
+              title: "Upload Phone Recording to Scan",
+              steps: [
+                "Record your phone conversation (if legally permitted)",
+                "Select \"Upload Recording\" on the home screen",
+                "Choose the audio file from your device",
+                "ScamShield will transcribe and analyze for fraud patterns"
+              ]
+            }
+          ].map((section, i) => (
             <div 
-              key={step.num} 
+              key={i} 
               className="flex gap-4 items-start group"
               style={{ animationDelay: `${i * 0.1}s` }}
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-lg shadow-md group-hover:scale-110 transition-transform">
-                {step.num}
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-lg shadow-md mt-1 group-hover:scale-105 transition-transform">
+                {i + 1}
               </div>
-              <p className="text-lg text-stone-700 dark:text-stone-300 pt-2">{step.text}</p>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-txt dark:text-txt-dark">{section.title}</h3>
+                <ul className="space-y-2">
+                  {section.steps.map((step, sIdx) => (
+                    <li key={sIdx} className="text-stone-600 dark:text-stone-300 flex gap-2 text-base leading-relaxed">
+                       <span className="opacity-50 mt-1.5 w-1.5 h-1.5 rounded-full bg-stone-400 flex-shrink-0" /> 
+                       {step}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Important Reminder */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 rounded-3xl border-2 border-amber-200 dark:border-amber-800/50 animate-slide-up stagger-3">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-amber-100 dark:bg-amber-900/50 rounded-2xl">
-            <AlertTriangle className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+      {/* Important Disclaimer */}
+      <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 md:p-8 rounded-3xl border-2 border-amber-200 dark:border-amber-800/50 animate-slide-up stagger-3">
+        <div className="flex items-start gap-5">
+          <div className="p-3 bg-amber-100 dark:bg-amber-900/50 rounded-2xl flex-shrink-0">
+            <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
           </div>
-          <div>
-            <h3 className="text-xl font-display font-bold text-amber-800 dark:text-amber-300 mb-2">
-              Important Reminder
+          <div className="flex-grow">
+            <h3 className="text-2xl font-display font-bold text-amber-800 dark:text-amber-300 mb-4">
+              Important Disclaimer
             </h3>
-            <p className="text-lg text-amber-900 dark:text-amber-200 leading-relaxed">
-              We are an AI helper, not the police or your bank. If you are ever scared or have already sent money, 
-              please call your bank immediately on a trusted number.
-            </p>
+            <div className="space-y-4 text-lg text-amber-900 dark:text-amber-200 leading-relaxed">
+              <p>
+                ScamShield is an AI-powered assistance tool designed to help identify potential scams. 
+                We are not affiliated with law enforcement, financial institutions, or government agencies.
+              </p>
+              
+              <div className="bg-amber-100/50 dark:bg-amber-900/30 p-4 rounded-xl">
+                <p className="font-bold mb-2">If you have:</p>
+                <ul className="list-disc pl-5 space-y-1 marker:text-amber-600">
+                  <li>Already sent money or shared personal information</li>
+                  <li>Been threatened or coerced</li>
+                  <li>Suspect you are a victim of fraud</li>
+                </ul>
+              </div>
+
+              <p className="font-bold text-amber-800 dark:text-amber-100">
+                Take immediate action: Contact your bank using their official number and report the incident to local authorities. 
+                This tool should supplement, not replace, professional guidance and official reporting procedures.
+              </p>
+            </div>
           </div>
         </div>
       </div>

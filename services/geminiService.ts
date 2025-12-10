@@ -397,11 +397,15 @@ export interface ScamNewsItem {
   tags?: string[];
 }
 
-export const fetchScamNews = async (location: {
-  city?: string | null;
-  region?: string | null;
-  country?: string | null;
-}): Promise<{ items: ScamNewsItem[]; warning: string | null; error: string | null }> => {
+export const fetchScamNews = async (
+  location: {
+    city?: string | null;
+    region?: string | null;
+    country?: string | null;
+  },
+  existingTitles: string[] = [], // New parameter for exclusion
+  count: number = 6 // Default requested count
+): Promise<{ items: ScamNewsItem[]; warning: string | null; error: string | null }> => {
   if (!process.env.API_KEY) {
     const warning = "No API key; showing placeholder news.";
     return { items: [] as ScamNewsItem[], warning, error: warning };
@@ -417,11 +421,27 @@ export const fetchScamNews = async (location: {
     .filter(Boolean)
     .join("; ");
 
+  // Create exclude clause
+  const excludeText = existingTitles.length > 0 
+    ? `\nIMPORTANT: Do NOT include these stories which are already shown: ${JSON.stringify(existingTitles)}`
+    : "";
+
+  // Optimized prompt: Requests specific count and handles exclusion
   const prompt = `
 You are a concise scam news summarizer.
-Location: ${locationLine || "unknown"}
-Return top 25 scam-related news stories from the last 12 months relevant to the location.
-Output JSON only: { "items": [{ "title": "...", "summary": "...", "date": "YYYY-MM-DD", "source": "...", "link": "...", "severity": "high|medium|low", "tags": ["city:<slug>", "global"] }] }
+User Location: ${locationLine || "unknown"}
+
+Generate exactly ${count} NEW scam news items relevant to this location from the last 12 months.
+${excludeText}
+
+Categorize strictly in the 'tags' array:
+- 'city' IF the scam is specific to ${location.city || 'the local city'}
+- 'region' IF specific to ${location.region || 'the state/province'}
+- 'country' IF specific to ${location.country || 'the country'} (and NOT specific to a single city)
+- 'global' IF it is a general trend (worldwide)
+
+JSON Format:
+{ "items": [{ "title": "...", "summary": "...", "date": "YYYY-MM-DD", "source": "...", "severity": "high|medium|low", "tags": ["city", "country"] }] }
 `;
 
   const maxRetries = 3;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScamAnalysis, SearchVerificationResult } from '../types';
 import { generateSpeech } from '../services/geminiService';
+import { useToast } from '../context/ToastContext';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -34,6 +35,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
   const [copiedContact, setCopiedContact] = useState<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const { addToast } = useToast();
 
   const getRiskStyles = (level: string) => {
     switch (level) {
@@ -93,6 +95,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
   const handleCopyFamilyText = () => {
     navigator.clipboard.writeText(analysis.family_alert_text);
     setCopiedFamilyText(true);
+    addToast('Alert text copied to clipboard', 'success');
     setTimeout(() => setCopiedFamilyText(false), 2000);
   };
   
@@ -114,6 +117,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
   const handleCopyContact = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedContact(text);
+    addToast('Contact copied to clipboard', 'success');
     setTimeout(() => setCopiedContact(null), 2000);
   };
 
@@ -129,7 +133,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
         audio.play();
     } catch (e) {
         console.error("Failed to play audio", e);
-        alert("Could not play audio right now.");
+        addToast("Could not generate audio. Please check your connection.", 'error');
     } finally {
         setIsGeneratingAudio(false);
     }
@@ -239,7 +243,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
           </div>
           
           <div className="p-5">
-            <p className="text-base text-stone-700 dark:text-stone-300 leading-7 mb-4">
+            <p className="text-base font-bold text-stone-700 dark:text-stone-300 leading-7 mb-4">
               {searchResult.text}
             </p>
             

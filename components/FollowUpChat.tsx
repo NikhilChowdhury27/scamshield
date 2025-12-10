@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, ScamAnalysis, FileInput } from '../types';
 import { askFollowUpQuestion, analyzeContent } from '../services/geminiService';
+import { useToast } from '../context/ToastContext';
 import { Send, User, Bot, Loader2, Mic, X, Upload, Sparkles, MessageSquare } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
@@ -37,6 +38,8 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [audioFile, setAudioFile] = useState<FileInput | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  
+  const { addToast } = useToast();
   
   // Recording state
   const [isRecordingMode, setIsRecordingMode] = useState(false);
@@ -362,6 +365,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
             },
             onerror: (err) => {
               console.error("[Gemini Live Session] Error:", err);
+              addToast(`Live transcription error: ${err.message || 'Unknown error'}`, 'error');
             }
           }
         });
@@ -383,6 +387,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
     } catch (err: any) {
       console.error("Recording error:", err);
+      addToast("Could not start recording. Please check microphone permissions.", 'error');
       setIsRecordingMode(false);
     }
   };
@@ -422,8 +427,10 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
           setLiveTranscript('');
           setTranscriptPreview('');
         } catch (err: any) {
-          const errorMsg: ChatMessage = { role: 'model', content: err.message || "I'm having trouble analyzing the audio. Please try again." };
+          const msg = err.message || "I'm having trouble analyzing the audio. Please try again.";
+          const errorMsg: ChatMessage = { role: 'model', content: msg };
           setMessages(prev => [...prev, errorMsg]);
+          addToast(msg, 'error');
         } finally {
           setIsLoading(false);
         }
@@ -471,8 +478,10 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
         setMessages(prev => [...prev, botMsg]);
         setAudioFile(null);
       } catch (err: any) {
-        const errorMsg: ChatMessage = { role: 'model', content: err.message || "I'm having trouble analyzing the audio. Please try again." };
+        const msg = err.message || "I'm having trouble analyzing the audio. Please try again.";
+        const errorMsg: ChatMessage = { role: 'model', content: msg };
         setMessages(prev => [...prev, errorMsg]);
+        addToast(msg, 'error');
       } finally {
         setIsLoading(false);
       }
@@ -489,9 +498,11 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
       const responseText = await askFollowUpQuestion(analysis, input);
       const botMsg: ChatMessage = { role: 'model', content: responseText };
       setMessages(prev => [...prev, botMsg]);
-    } catch (err) {
-      const errorMsg: ChatMessage = { role: 'model', content: "I'm having trouble connecting right now. Please try again later." };
+    } catch (err: any) {
+      const msg = "I'm having trouble connecting right now. Please try again later.";
+      const errorMsg: ChatMessage = { role: 'model', content: msg };
       setMessages(prev => [...prev, errorMsg]);
+      addToast(err.message || msg, 'error');
     } finally {
       setIsLoading(false);
     }

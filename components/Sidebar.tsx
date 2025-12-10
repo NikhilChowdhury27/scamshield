@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper, MapPin } from 'lucide-react';
+import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper, MapPin, Settings } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 
@@ -13,11 +13,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
   const { getLocationString, isLoading } = useLocation();
 
   const navItems = [
-    { id: 'check', label: 'Check Message', icon: Shield, description: 'Analyze suspicious content' },
-    { id: 'history', label: 'History', icon: Clock, description: 'Past analyses' },
-    { id: 'learn', label: 'Learn', icon: BookOpen, description: 'Common scam types' },
-    { id: 'news', label: 'News', icon: Newspaper, description: 'Local scam alerts' },
-    { id: 'settings', label: 'Settings', icon: HelpCircle, description: 'Preferences & help' },
+    { id: 'check', label: 'New Scan', icon: Shield, description: 'Analyze suspicious content' },
+    { id: 'history', label: 'Past Analysis', icon: Clock, description: 'View past scans' },
+    { id: 'news', label: 'Local Alerts', icon: Newspaper, description: 'Recent scams in your area' },
+    { id: 'learn', label: 'Common Scams', icon: BookOpen, description: 'Types of fraud' },
+    { id: 'settings', label: 'Preferences', icon: Settings, description: 'Accessibility & help' },
   ];
 
   return (

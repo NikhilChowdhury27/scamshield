@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { MapPin, Globe2, ShieldAlert, AlertTriangle, Clock, Link2, Sparkles, RefreshCw, ChevronDown } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { MapPin, Globe2, ShieldAlert, AlertTriangle, Clock, Link2, Sparkles, RefreshCw, ChevronDown, Search, Loader2 } from 'lucide-react';
 import { useLocation } from '../context/LocationContext';
+import { useToast } from '../context/ToastContext';
 import { fetchScamNews, ScamNewsItem } from '../services/geminiService';
 
-type NewsScope = 'auto' | 'city' | 'region' | 'country' | 'global';
+type NewsScope = 'all' | 'city' | 'region' | 'country' | 'global';
 
+// Use a smaller set of fallback news since we are fetching smaller batches anyway
 const FALLBACK_NEWS: ScamNewsItem[] = [
   {
     title: 'Bank “video KYC” spoofing scam targets seniors',
@@ -37,55 +39,7 @@ const FALLBACK_NEWS: ScamNewsItem[] = [
     source: 'Cyber Helpline',
     tags: ['global'],
     severity: 'medium',
-  },
-  {
-    title: 'UPI “collect request” fraud in metros',
-    summary: 'Fraudsters ask victims to “verify” refunds by accepting collect requests; money moves out instantly.',
-    date: '2025-03-10',
-    source: 'Payments Council Advisory',
-    tags: ['global'],
-    severity: 'high',
-  },
-  {
-    title: 'Fake job offers on messaging apps',
-    summary: '“Easy earnings” tasks lure users; after small payouts, larger deposits are coerced and then blocked.',
-    date: '2025-01-12',
-    source: 'Labor Watch',
-    tags: ['global'],
-    severity: 'medium',
-  },
-  {
-    title: 'QR code parking scam in downtown areas',
-    summary: 'Fraudulent stickers on meters redirect payments to attacker wallets.',
-    date: '2025-02-28',
-    source: 'City Safety Dept',
-    tags: ['global'],
-    severity: 'medium',
-  },
-  {
-    title: 'Insurance policy lapsation calls',
-    summary: 'Elders told their policy will lapse; scammers harvest PAN/Aadhaar/OTPs to open loan accounts.',
-    date: '2025-01-30',
-    source: 'Insurance Ombudsman',
-    tags: ['global'],
-    severity: 'high',
-  },
-  {
-    title: 'Phishing emails mimic tax office',
-    summary: 'Emails threaten penalties; links lead to fake portals that steal credentials.',
-    date: '2025-02-22',
-    source: 'Taxpayer Protection Wing',
-    tags: ['global'],
-    severity: 'medium',
-  },
-  {
-    title: 'E-commerce returns refund scam',
-    summary: '“Support” callers guide victims to install screen-share apps to process refunds, then siphon funds.',
-    date: '2025-03-06',
-    source: 'Consumer Watch',
-    tags: ['global'],
-    severity: 'medium',
-  },
+  }
 ];
 
 const severityColor = (severity: ScamNewsItem['severity']) => {
@@ -98,9 +52,6 @@ const severityColor = (severity: ScamNewsItem['severity']) => {
       return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30';
   }
 };
-
-const isValidLink = (link?: string) =>
-  typeof link === 'string' && /^https?:\/\//i.test(link.trim());
 
 // Improved Skeleton Component
 const SkeletonCard = () => (
@@ -133,23 +84,28 @@ const SkeletonCard = () => (
 
 const NewsView: React.FC = () => {
   const { location, getLocationString } = useLocation();
-  const [scope, setScope] = useState<NewsScope>('auto');
+  const { addToast } = useToast();
+  const [scope, setScope] = useState<NewsScope>('all');
   const [news, setNews] = useState<ScamNewsItem[]>([]);
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [displayCount, setDisplayCount] = useState<number>(6);
-  const [scopeChanging, setScopeChanging] = useState<boolean>(false);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  
+  // Loading states
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [refreshId, setRefreshId] = useState<number>(0);
+  
+  // Pagination & Scroll refs
   const loadingRef = useRef(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const hasMoreRef = useRef(true); // Assuming there's always more unless API errors consistently
 
-  // Load news with Caching
+  // Load Initial News (First 6 items)
   useEffect(() => {
     // Unique cache key based on location details
     const cacheKey = `scam-news-${location.city || 'x'}-${location.region || 'x'}-${location.country || 'x'}`;
     
-    const load = async () => {
+    const loadInitial = async () => {
       // Try to load from cache first if not refreshing
       if (refreshId === 0) {
         try {
@@ -159,6 +115,7 @@ const NewsView: React.FC = () => {
             if (Array.isArray(parsed) && parsed.length > 0) {
               console.log("Loaded news from cache");
               setNews(parsed);
+              setInitialLoading(false);
               return;
             }
           }
@@ -167,20 +124,24 @@ const NewsView: React.FC = () => {
         }
       }
 
-      setLoading(true);
-      loadingRef.current = true;
+      setInitialLoading(true);
       setError(null);
+      
       const { items, warning, error } = await fetchScamNews({
         city: location.city,
         region: location.region,
         country: location.country,
-      });
+      }, [], 6); // Fetch 6 items
 
       setWarning(warning);
-      if (error) setError(error);
+      if (error) {
+          setError(error);
+          addToast(`Failed to load news: ${error}`, 'error');
+      }
 
       if (items && items.length > 0) {
         setNews(items);
+        hasMoreRef.current = true;
         // Save to cache
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(items));
@@ -193,129 +154,114 @@ const NewsView: React.FC = () => {
           setWarning('Showing fallback news for now.');
         }
       }
-      setLoading(false);
-      loadingRef.current = false;
+      setInitialLoading(false);
     };
 
-    load().catch((err) => {
+    loadInitial().catch((err) => {
       console.error('News load error', err);
-      setError(err?.message || 'Could not fetch latest news.');
+      const msg = err?.message || 'Could not fetch latest news.';
+      setError(msg);
+      addToast(msg, 'error');
       setNews(FALLBACK_NEWS);
-      setLoading(false);
-      loadingRef.current = false;
+      setInitialLoading(false);
     });
-  }, [location.city, location.region, location.country, refreshId]);
+  }, [location.city, location.region, location.country, refreshId, addToast]);
 
-  // Reset visible count and show loader when scope/location changes
+  // Load More Function (Next Batch)
+  const handleLoadMore = useCallback(async () => {
+    if (loadingRef.current || !hasMoreRef.current) return;
+    
+    loadingRef.current = true;
+    setIsLoadingMore(true);
+
+    // Get current titles to exclude
+    const existingTitles = news.map(i => i.title);
+
+    try {
+        const { items, error } = await fetchScamNews({
+            city: location.city,
+            region: location.region,
+            country: location.country,
+        }, existingTitles, 6);
+
+        if (error) {
+           console.warn("Error fetching more news:", error);
+           addToast(`Error loading more news: ${error}`, 'error');
+           // Don't disable hasMore immediately on error, might be transient
+        }
+
+        if (items && items.length > 0) {
+             setNews(prev => {
+                const updated = [...prev, ...items];
+                // Update cache
+                const cacheKey = `scam-news-${location.city || 'x'}-${location.region || 'x'}-${location.country || 'x'}`;
+                sessionStorage.setItem(cacheKey, JSON.stringify(updated));
+                return updated;
+             });
+        } else {
+             hasMoreRef.current = false; // Stop if no items returned
+        }
+    } catch (e: any) {
+        console.error("Failed to load more news", e);
+        addToast(e.message || "Failed to load more news", 'error');
+    } finally {
+        loadingRef.current = false;
+        setIsLoadingMore(false);
+    }
+  }, [news, location, addToast]);
+
+
+  // Intersection Observer for Infinite Scroll
   useEffect(() => {
-    setDisplayCount(6);
-    setScopeChanging(true);
-    // Brief delay to show loading state
-    const timer = setTimeout(() => setScopeChanging(false), 300);
-    return () => clearTimeout(timer);
-  }, [scope, location.city, location.region, location.country, refreshId]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !initialLoading) {
+            handleLoadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
 
-  const keywords = useMemo(() => {
-    const tokens: { scope: NewsScope; value: string }[] = [];
-    if (location.city) tokens.push({ scope: 'city', value: location.city });
-    if (location.region) tokens.push({ scope: 'region', value: location.region });
-    if (location.country) tokens.push({ scope: 'country', value: location.country });
-    return tokens;
-  }, [location.city, location.region, location.country]);
-
-  const sortedNews = useMemo(() => {
-    return [...news].sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      return db - da; // descending
-    });
-  }, [news]);
-
-  const filteredNews = useMemo(() => {
-    const normalize = (v: string) => v.toLowerCase().replace(/\s+/g, '');
-    const available = keywords.map(k => ({ scope: k.scope, key: normalize(k.value) }));
-    const orderedScopes: NewsScope[] =
-      scope === 'auto'
-        ? available.map(a => a.scope).concat(['country', 'global']).filter((v, i, arr) => arr.indexOf(v) === i) as NewsScope[]
-        : [scope, 'country', 'global'];
-
-    const pool: ScamNewsItem[] = [];
-    // Helper to avoid dupes
-    const seen = new Set<string>();
-
-    for (const s of orderedScopes) {
-      const matchKey = available.find(k => k.scope === s)?.key;
-      const scoped = sortedNews.filter(item => {
-        if (seen.has(item.title)) return false;
-        if (!item.tags || item.tags.length === 0) return s === 'global';
-        
-        // If searching specifically for global
-        if (s === 'global') return item.tags.some(t => t.startsWith('global'));
-        
-        // If searching for city/region/country
-        if (!matchKey) return false;
-        return item.tags.some(t => normalize(t) === `${s}:${matchKey}`);
-      });
-      
-      scoped.forEach(i => seen.add(i.title));
-      pool.push(...scoped);
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
     }
 
-    // If still very few, fill from any remaining global items
-    const globalExtras = sortedNews.filter(n => n.tags?.includes('global') && !seen.has(n.title));
-    const combined = pool.concat(globalExtras);
-
-    return combined;
-  }, [keywords, scope, sortedNews]);
-
-  // Infinite Scroll Logic with Looping
-  const visibleItems = useMemo(() => {
-      if (filteredNews.length === 0) return [];
-      
-      const result = [];
-      for (let i = 0; i < displayCount; i++) {
-          const item = filteredNews[i % filteredNews.length];
-          // We add a virtual index to the key to make React treat duplicates as unique list items
-          result.push({ ...item, virtualId: `${item.title}-${i}` });
-      }
-      return result;
-  }, [filteredNews, displayCount]);
-
-  const loadMoreItems = () => {
-    setLoadingMore(true);
-    // Add artificial delay for UX and to show the loader
-    setTimeout(() => {
-        setDisplayCount((prev) => prev + 6);
-        setLoadingMore(false);
-    }, 800);
-  };
-
-  // Infinite scroll listener
-  useEffect(() => {
-    const scrollContainer = document.getElementById('main-scroll-container');
-    if (!scrollContainer) return;
-
-    const onScroll = () => {
-      if (loadingMore || loadingRef.current || scopeChanging || filteredNews.length === 0) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      // Trigger when within 200px of bottom
-      const threshold = scrollHeight - clientHeight - 200;
-
-      if (scrollTop >= threshold) {
-        loadMoreItems();
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
       }
     };
-    
-    scrollContainer.addEventListener('scroll', onScroll, { passive: true });
-    return () => scrollContainer.removeEventListener('scroll', onScroll);
-  }, [loadingMore, scopeChanging, filteredNews.length]);
+  }, [handleLoadMore, initialLoading]);
 
+
+  const filteredNews = useMemo(() => {
+    let result = [...news];
+
+    // STRICT FILTERING LOGIC
+    if (scope === 'all') {
+      // Show everything, but prioritize local implicitly by API ranking
+    } else {
+      result = result.filter(item => {
+        // If the news item has no tags, treat it as global
+        if (!item.tags || item.tags.length === 0) return scope === 'global';
+        
+        // Check if the item's tags match the requested scope
+        if (scope === 'city') return item.tags.includes('city');
+        if (scope === 'region') return item.tags.includes('region') || item.tags.includes('city');
+        if (scope === 'country') return item.tags.includes('country');
+        if (scope === 'global') return item.tags.includes('global');
+        
+        return false;
+      });
+    }
+
+    return result;
+  }, [news, scope]);
 
   const pills: { id: NewsScope; label: string }[] = [
-    { id: 'auto', label: 'Auto' },
+    { id: 'all', label: 'All' },
     { id: 'city', label: 'City' },
-    { id: 'region', label: 'State/Region' },
+    { id: 'region', label: 'State' },
     { id: 'country', label: 'Country' },
     { id: 'global', label: 'Global' },
   ];
@@ -325,6 +271,7 @@ const NewsView: React.FC = () => {
       const cacheKey = `scam-news-${location.city || 'x'}-${location.region || 'x'}-${location.country || 'x'}`;
       sessionStorage.removeItem(cacheKey);
       setNews([]);
+      hasMoreRef.current = true;
       setRefreshId(prev => prev + 1);
   }
 
@@ -343,7 +290,7 @@ const NewsView: React.FC = () => {
               Stay ahead of scams near you
             </h1>
             <p className="text-stone-600 dark:text-stone-400 max-w-2xl">
-              We surface the top scam alerts reported this year, tailored to your city, state, or country.
+              We surface top scam alerts, categorized by your location.
             </p>
             <div className="flex items-center gap-2">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-border-dark bg-surface/70 dark:bg-surface-dark/70 text-sm text-stone-700 dark:text-stone-200">
@@ -355,7 +302,7 @@ const NewsView: React.FC = () => {
                   className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-stone-500 active:scale-95"
                   title="Refresh News"
                 >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 ${initialLoading ? 'animate-spin' : ''}`} />
                 </button>
             </div>
           </div>
@@ -379,7 +326,7 @@ const NewsView: React.FC = () => {
 
       {/* News Grid */}
       <div className="grid md:grid-cols-2 gap-5">
-        {(loading || scopeChanging) && (
+        {initialLoading && (
           <>
             <SkeletonCard />
             <SkeletonCard />
@@ -388,24 +335,30 @@ const NewsView: React.FC = () => {
           </>
         )}
         
-        {(warning || error) && !loading && !scopeChanging && (
+        {(warning || error) && !initialLoading && (
           <div className="md:col-span-2 rounded-2xl border border-dashed border-border dark:border-border-dark bg-surface/70 dark:bg-surface-dark/70 p-4 text-sm text-stone-600 dark:text-stone-400 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-orange-500" />
             {warning || error}
           </div>
         )}
         
-        {!loading && !scopeChanging && visibleItems.length === 0 && (
+        {!initialLoading && filteredNews.length === 0 && (
           <div className="md:col-span-2 rounded-2xl border border-dashed border-border dark:border-border-dark bg-surface/60 dark:bg-surface-dark/60 p-12 text-center text-stone-600 dark:text-stone-400">
             <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-orange-500" />
-            <p className="text-lg font-medium">No local alerts found</p>
-            <p className="text-sm">Try expanding the scope to 'Country' or 'Global'.</p>
+            <p className="text-lg font-medium">No alerts found for {scope === 'all' ? 'this location' : scope}</p>
+            <p className="text-sm mt-1 mb-4">Try switching to "All" or "Global" to see broader news.</p>
+            <button 
+                onClick={handleLoadMore} 
+                className="px-4 py-2 bg-stone-200 dark:bg-stone-700 rounded-full text-sm font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors"
+            >
+                Load General News
+            </button>
           </div>
         )}
         
-        {!scopeChanging && visibleItems.map((item) => (
+        {filteredNews.map((item, index) => (
           <div
-            key={item.virtualId}
+            key={`${item.title}-${index}`}
             className="group rounded-2xl border border-border dark:border-border-dark bg-surface dark:bg-surface-dark p-6 flex flex-col gap-3 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 relative h-full"
           >
             <div className="flex items-center justify-between gap-3">
@@ -436,40 +389,28 @@ const NewsView: React.FC = () => {
                 <span className="truncate max-w-[120px]">{item.source}</span>
               </div>
             </div>
-
-            {isValidLink(item.link) && (
-              <a
-                href={item.link}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-semibold text-sm transition-colors group-hover:bg-orange-500/20"
-              >
-                Read more <Link2 className="w-4 h-4" />
-              </a>
-            )}
           </div>
         ))}
-        
-        {loadingMore && (
-          <>
-             <SkeletonCard />
-             <SkeletonCard />
-          </>
-        )}
       </div>
 
-      {/* Manual Load More fallback */}
-      {!loading && !scopeChanging && !loadingMore && visibleItems.length > 0 && (
-          <div className="flex justify-center pt-6 opacity-80 hover:opacity-100 transition-opacity">
-              <button 
-                  onClick={loadMoreItems}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all font-semibold text-sm"
-              >
-                  <ChevronDown className="w-4 h-4" />
-                  Load More
-              </button>
-          </div>
+      {/* Infinite Scroll Loader */}
+      {!initialLoading && (
+        <div ref={observerTarget} className="flex justify-center py-6 h-24 items-center">
+            {isLoadingMore ? (
+                <div className="flex flex-col items-center gap-2 text-stone-400">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span className="text-xs font-medium">Loading more stories...</span>
+                </div>
+            ) : hasMoreRef.current && (
+                <button 
+                    onClick={handleLoadMore}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all font-semibold text-sm opacity-60 hover:opacity-100"
+                >
+                    <ChevronDown className="w-4 h-4" />
+                    Load More
+                </button>
+            )}
+        </div>
       )}
     </div>
   );

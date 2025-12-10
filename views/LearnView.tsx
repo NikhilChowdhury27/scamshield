@@ -160,8 +160,7 @@ const LearnView: React.FC = () => {
           <div className="text-center md:text-left flex-grow">
             <h3 className="text-2xl font-display font-bold mb-2">Remember the Golden Rule</h3>
             <p className="text-white/90 text-lg">
-              If someone is pressuring you to act fast or keep a secret, it's almost always a scam.
-              Take your time and talk to someone you trust first.
+              Legitimate entities do not require immediate action or secrecy. If a request involves pressure tactics, it is likely a security threat. Please pause, verify the source, and consult a trusted advisor before proceeding.
             </p>
           </div>
         </div>

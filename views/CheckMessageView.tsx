@@ -5,6 +5,7 @@ import ResultCard from '../components/ResultCard';
 import FollowUpChat from '../components/FollowUpChat';
 import { useScamHistory } from '../hooks/useScamHistory';
 import { useLocation } from '../context/LocationContext';
+import { useToast } from '../context/ToastContext';
 import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield, Languages, Plus, ChevronDown, Play, Pause } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
@@ -43,6 +44,8 @@ const CheckMessageView: React.FC = () => {
   const [searchResult, setSearchResult] = useState<SearchVerificationResult | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { addToast } = useToast();
   
   // Input state
   const [text, setText] = useState('');
@@ -609,7 +612,9 @@ const CheckMessageView: React.FC = () => {
             },
             onerror: (err) => {
                 console.error("[Gemini Live Session] Error:", err);
-                setError(`Transcription error: ${err.message || 'Unknown error'}`);
+                const msg = `Transcription error: ${err.message || 'Unknown error'}`;
+                setError(msg);
+                addToast(msg, 'error');
             }
         }
       });
@@ -622,7 +627,9 @@ const CheckMessageView: React.FC = () => {
           startTranscriptFlushTimer();
         });
       } else {
-        setRiskMessage('Live analysis limited (no API key). Using local captions only.');
+        const msg = 'Live analysis limited (no API key). Using local captions only.';
+        setRiskMessage(msg);
+        addToast(msg, 'warning');
       }
       
       setIsRecordingMode(true);
@@ -634,11 +641,12 @@ const CheckMessageView: React.FC = () => {
       }, 1000);
 
     } catch (err: any) {
+      let msg = "Could not start recording.";
       if (err.name === 'NotAllowedError' || err.message.includes('permission')) {
-        setError("Microphone access denied. Please allow microphone access in your browser settings.");
-      } else {
-        setError("Could not start recording. Please check your connection and microphone.");
+        msg = "Microphone access denied. Please check your browser settings.";
       }
+      setError(msg);
+      addToast(msg, 'error');
       setIsRecordingMode(false);
     }
   };
@@ -702,7 +710,9 @@ const CheckMessageView: React.FC = () => {
         setText('');
         setFiles([]);
       } catch (err: any) {
-        setError(err.message || "Something went wrong analyzing the audio.");
+        const msg = err.message || "Something went wrong analyzing the audio.";
+        setError(msg);
+        addToast(msg, 'error');
       } finally {
         setIsLoading(false);
       }
@@ -723,7 +733,9 @@ const CheckMessageView: React.FC = () => {
       setSearchResult(searchVerification);
       addToHistory({ ...result.analysis });
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      const msg = err.message || "Something went wrong. Please try again.";
+      setError(msg);
+      addToast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -837,7 +849,7 @@ const CheckMessageView: React.FC = () => {
                  <div className="flex-grow">
                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                         {files.map((file, idx) => (
-                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800">
+                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
                                  <img src={file.previewUrl} className="w-full h-full object-cover" />
                                  <button onClick={() => removeFile(idx)} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                     <X className="w-3 h-3" />
@@ -985,10 +997,10 @@ const CheckMessageView: React.FC = () => {
         </div>
         <h1 className="text-4xl md:text-5xl font-display font-bold text-txt dark:text-txt-dark mb-4 tracking-tight leading-tight">
           Is this message <br className="md:hidden" />
-          <span className="gradient-text">a scam?</span>
+          <span className="gradient-text">or call a scam?</span>
         </h1>
         <p className="text-lg text-stone-600 dark:text-stone-400 leading-relaxed max-w-xl mx-auto">
-          Share what you received and I'll analyze it for warning signs. Your safety is my priority.
+          Share any suspicious email, SMS, or call and get instant AI-powered scam detection. Your digital safety matters.
         </p>
       </div>
 
@@ -1054,13 +1066,13 @@ const CheckMessageView: React.FC = () => {
                     Recommended
                   </span>
                 </div>
-                <h3 className="text-2xl font-display font-bold text-white mb-1">
+                <h3 className="text-2xl font-display font-bold text-white mb-2">
                   Monitor a Phone Call
                 </h3>
-                <p className="text-stone-400 text-base">
-                  Put your phone on speaker. I'll listen, transcribe, and analyze in real-time.
-                         </p>
-                     </div>
+                <p className="text-stone-300 text-base leading-relaxed">
+                  Select Monitor Phone Call, and answer your incoming call. Turn on speaker mode and ScamShield will listen and detect scam patterns instantly.
+                </p>
+             </div>
 
               {/* Arrow */}
               <div className="hidden md:flex items-center justify-center w-12 h-12 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
@@ -1073,7 +1085,7 @@ const CheckMessageView: React.FC = () => {
         {/* Divider */}
         <div className="flex items-center gap-4 py-2">
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
-          <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or share content directly</span>
+          <span className="text-stone-400 dark:text-stone-500 font-medium text-sm">or paste and upload content</span>
           <div className="flex-grow h-px bg-gradient-to-r from-transparent via-stone-300 dark:via-stone-700 to-transparent"></div>
               </div>
 
@@ -1096,10 +1108,10 @@ const CheckMessageView: React.FC = () => {
             </div>
             <h4 className={`text-lg font-bold mb-1 ${activeMode === 'text' ? 'text-orange-700 dark:text-orange-300' : 'text-txt dark:text-txt-dark'
               }`}>
-              Paste Text
+              Paste Text Content
             </h4>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Copy and paste the suspicious message
+              Paste any email, SMS, or suspicious text for analysis
             </p>
             {activeMode === 'text' && (
               <div className="absolute top-3 right-3 w-3 h-3 bg-orange-500 rounded-full"></div>
@@ -1129,7 +1141,7 @@ const CheckMessageView: React.FC = () => {
               Upload Screenshot
             </h4>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Share an image of the message
+              Upload images of emails, messages, or any suspicious content
             </p>
             {activeMode === 'image' && files.length > 0 && (
               <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
@@ -1257,7 +1269,7 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
                 ) : (
             <span className="flex items-center justify-center gap-3">
               <Shield className="w-6 h-6" />
-              {hasContent ? 'Analyze Now' : 'Add content to analyze'}
+              {hasContent ? 'Analyze Now' : 'Select how you want to analyze'}
             </span>
                 )}
             </button>
@@ -1266,9 +1278,9 @@ Example: 'Hi Grandma, I'm in trouble and need $500 urgently. Please don't tell m
       {/* Trust Indicators */}
       <div className="grid grid-cols-3 gap-3 pt-4 animate-slide-up stagger-2">
         {[
-          { icon: Lock, label: 'Private', desc: 'Data stays with you', color: 'emerald' },
+          { icon: Lock, label: 'Private', desc: 'Your data stays private', color: 'emerald' },
           { icon: Zap, label: 'Instant', desc: 'Results in seconds', color: 'amber' },
-          { icon: Heart, label: 'Caring', desc: 'Built for elders', color: 'rose' },
+          { icon: Heart, label: 'Universal', desc: 'Built for everyone', color: 'rose' },
         ].map((item, i) => (
           <div key={i} className="text-center p-4 rounded-2xl bg-surface/50 dark:bg-surface-dark/50 border border-border/50 dark:border-border-dark/50">
             <item.icon className={`w-6 h-6 mx-auto mb-2 text-${item.color}-500`} />
