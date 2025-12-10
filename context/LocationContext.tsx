@@ -35,10 +35,35 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchIPLocation = async () => {
+        try {
+            // Fallback to IP-based geolocation if native API fails or is blocked
+            const response = await fetch('https://ipwho.is/');
+            const data = await response.json();
+            if (data.success) {
+                setLocation({
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    city: data.city,
+                    region: data.region,
+                    country: data.country,
+                    timezone: data.timezone.id || Intl.DateTimeFormat().resolvedOptions().timeZone,
+                });
+                setError(null);
+            } else {
+                // If IP fallback also fails, we just silently keep defaults (timezone)
+                console.warn('IP Geolocation fallback failed');
+            }
+        } catch (err) {
+            console.error('Fallback location failed', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const fetchLocation = async () => {
       if (!navigator.geolocation) {
-        setError('Geolocation is not supported by your browser.');
-        setIsLoading(false);
+        await fetchIPLocation();
         return;
       }
 
@@ -58,20 +83,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               country: data.address?.country || null,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             });
+            setIsLoading(false);
           } catch (err) {
-            console.error('Error fetching location details:', err);
-            setError('Could not retrieve detailed location. Using timezone only.');
+            console.error('Error fetching reverse geocoding:', err);
+            // Fallback to coordinates only if reverse geocoding fails, but keep loading false
             setLocation((prev) => ({ ...prev, latitude, longitude }));
-          } finally {
             setIsLoading(false);
           }
         },
-        (geoError) => {
-          // Log specific message to avoid [object Object]
-          console.error('Geolocation error:', geoError.message || geoError);
-          const msg = geoError.message || 'Unknown geolocation error';
-          setError(`Geolocation denied or unavailable: ${msg}. Using timezone only.`);
-          setIsLoading(false);
+        async (geoError) => {
+          console.warn('Geolocation access denied or failed. Switch to IP fallback.', geoError.message);
+          // If native geolocation fails (policy or user denied), use IP fallback
+          await fetchIPLocation();
         }
       );
     };
