@@ -1,6 +1,7 @@
 import React from 'react';
-import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper } from 'lucide-react';
+import { Shield, Clock, BookOpen, HelpCircle, Moon, Sun, Sparkles, Newspaper, MapPin } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useLocation } from '../context/LocationContext';
 
 interface SidebarProps {
   currentView: string;
@@ -9,6 +10,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
   const { isDarkMode, toggleTheme } = useTheme();
+  const { getLocationString, isLoading } = useLocation();
 
   const navItems = [
     { id: 'check', label: 'Check Message', icon: Shield, description: 'Analyze suspicious content' },
@@ -109,6 +111,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
 
         {/* Footer */}
         <div className="p-4 border-t border-border dark:border-border-dark hidden md:block space-y-4 flex-shrink-0">
+          
+          {/* Location Badge */}
+          <div className="px-3 py-2 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800 flex items-center gap-3">
+             <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <MapPin className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+             </div>
+             <div className="flex-1 min-w-0">
+                <p className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wide font-bold">Your Location</p>
+                <p className="text-sm font-medium text-txt dark:text-txt-dark truncate">
+                    {isLoading ? 'Locating...' : getLocationString()}
+                </p>
+             </div>
+          </div>
+
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}

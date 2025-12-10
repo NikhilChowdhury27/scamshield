@@ -68,27 +68,57 @@ const getBaseMimeType = (mimeType: string) => {
   return mimeType.split(';')[0].trim();
 };
 
-export const analyzeContent = async (
-  text: string,
-  files: FileInput[]
-): Promise<AnalysisResponse> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.warn("API Key missing - returning fallback analysis");
+// Robust check for 503 Overloaded errors including nested JSON structures
+const isRetryableError = (error: any): boolean => {
+  if (!error) return false;
+  
+  // Check HTTP status codes (500, 502, 503, 504)
+  const status = error.status || error.code || (error.error && error.error.code);
+  if ([500, 502, 503, 504].includes(Number(status))) return true;
+  
+  // Check nested error object status
+  if (error.error && error.error.status === 'UNAVAILABLE') return true;
+  
+  // Check message string content
+  const msg = error.message || (error.error && error.error.message) || JSON.stringify(error);
+  if (typeof msg === 'string') {
+    const lowerMsg = msg.toLowerCase();
+    return (
+      lowerMsg.includes('overloaded') || 
+      lowerMsg.includes('503') || 
+      lowerMsg.includes('unavailable') ||
+      lowerMsg.includes('resource exhausted') ||
+      lowerMsg.includes('no response') ||
+      lowerMsg.includes('fetch failed') ||
+      lowerMsg.includes('network error')
+    );
+  }
+  
+  return false;
+};
+
+// Fallback response when API is completely down
+const createOfflineAnalysis = (text: string, files: FileInput[]): AnalysisResponse => {
     return {
       analysis: {
-        risk_score: 0.1,
-        risk_label: "LOW",
+        risk_score: 0.5,
+        risk_label: "MEDIUM",
         scam_type: "other_or_unknown",
-        summary_for_elder: "Live analysis is offline because the API key is not set. Please try again later or ask a trusted family member to review this message.",
+        summary_for_elder: "I'm having trouble connecting to the AI service right now due to high traffic. However, you should always be cautious. If this message asks for money, gift cards, or personal information, assume it is a scam.",
         transcription: "",
-        red_flags: [],
+        red_flags: [
+            {
+                title: "Service Unavailable",
+                description_for_elder: "The AI service is currently overloaded. Treat this message with extra caution."
+            }
+        ],
         safe_actions_for_elder: [
           "Do not share personal or financial details.",
-          "Verify the sender using an official channel or ask a family member."
+          "Verify the sender using an official channel or ask a family member.",
+          "Try analyzing this message again in a few minutes."
         ],
-        call_script_if_scammer_calls_back: "I need to verify this with my family. I will call back later.",
-        family_alert_text: "Analysis was offline (no API key). Please help review this message.",
+        call_script_if_scammer_calls_back: "I cannot talk right now. Please do not call again.",
+        family_alert_text: "I received a suspicious message but the AI scanner was offline. Can you help me check it?",
         regulatory_reporting_suggestions: [
           {
             region_hint: "Global",
@@ -98,23 +128,40 @@ export const analyzeContent = async (
         ],
         input_interpretation: {
           content_type: files.length ? "mixed" : "text",
-          language_detected: "en",
+          language_detected: "unknown",
           sender_claimed_identity: "unknown",
           requested_actions: ["unknown_or_none"],
           requested_payment_methods: ["unknown_or_not_applicable"]
         },
-        disclaimer_for_elder: "This is a limited offline check. For a full analysis, try again later."
+        disclaimer_for_elder: "This is an automated fallback message because the AI service is currently busy."
       }
     };
+};
+
+export const analyzeContent = async (
+  text: string,
+  files: FileInput[],
+  userLocation?: string
+): Promise<AnalysisResponse> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.warn("API Key missing - returning fallback analysis");
+    return createOfflineAnalysis(text, files);
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
   const parts: any[] = [];
+  
+  // Inject location into context if available
+  let promptText = text;
+  if (userLocation) {
+    promptText = `[USER LOCATION CONTEXT: ${userLocation}. Please provide specific regulatory reporting suggestions (emails, phone numbers, websites) relevant to this location in the JSON response.]\n\n${text}`;
+  }
 
   // Add text if present
-  if (text.trim()) {
-    parts.push({ text: text });
+  if (promptText.trim()) {
+    parts.push({ text: promptText });
   }
 
   // Process files
@@ -133,13 +180,12 @@ export const analyzeContent = async (
     throw new Error("Please provide some text or a file to analyze.");
   }
 
-  // Retry logic for 503 Overloaded errors
-  const maxRetries = 3;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  const generateWithModel = async (modelName: string) => {
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        // Use gemini-2.5-flash for reliability and schema support
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash", 
+          model: modelName,
           config: {
             systemInstruction: SCAM_SHIELD_SYSTEM_PROMPT,
             responseMimeType: "application/json",
@@ -155,34 +201,34 @@ export const analyzeContent = async (
           throw new Error("No response received from the AI.");
         }
 
-        // Clean up potential markdown code blocks (though schema usually prevents this)
         responseText = responseText.replace(/```json\n?|```/g, "").trim();
-
-        try {
-            const jsonResponse = JSON.parse(responseText) as AnalysisResponse;
-            return jsonResponse;
-        } catch (parseError) {
-            console.error("JSON Parse Error. Raw response:", responseText);
-            throw new Error("I couldn't understand the AI's response. Please try again.");
-        }
+        return JSON.parse(responseText) as AnalysisResponse;
         
       } catch (error: any) {
-        const isOverloaded = error?.status === 503 || (error?.message && (error.message.includes('overloaded') || error.message.includes('503')));
-        
-        if (isOverloaded) {
-            console.warn(`Model overloaded in analyzeContent, retrying (attempt ${attempt + 1}/${maxRetries})...`);
-            if (attempt < maxRetries - 1) {
-                // Exponential backoff: 2s, 4s, 8s
-                await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, attempt)));
-                continue;
-            }
+        if (isRetryableError(error) && attempt < maxRetries - 1) {
+            const delay = 3000 * Math.pow(2, attempt); // Increased delay: 3s, 6s, 12s
+            console.warn(`Model ${modelName} issue, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
         }
-        
-        console.error("Gemini API Error:", error);
-        throw new Error("I had trouble analyzing that. Please check your connection or try again.");
+        throw error;
       }
+    }
+    throw new Error("Max retries exceeded");
+  };
+
+  // Strategy: Try Pro -> Fallback to Flash -> Fallback to Offline Response
+  try {
+    return await generateWithModel("gemini-3-pro-preview");
+  } catch (error) {
+    console.warn("Gemini 3 Pro failed, falling back to Gemini 2.5 Flash:", error);
+    try {
+      return await generateWithModel("gemini-2.5-flash");
+    } catch (fallbackError) {
+      console.error("All models failed. Returning offline fallback.", fallbackError);
+      return createOfflineAnalysis(text, files);
+    }
   }
-  throw new Error("Service Unavailable. Please try again later.");
 };
 
 export const verifyScamWithSearch = async (text: string): Promise<SearchVerificationResult> => {
@@ -191,12 +237,12 @@ export const verifyScamWithSearch = async (text: string): Promise<SearchVerifica
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // Retry logic
-    const maxRetries = 2;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const generateWithModel = async (modelName: string) => {
+      const maxRetries = 3;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
+                model: modelName,
                 config: {
                     systemInstruction: SEARCH_VERIFICATION_PROMPT,
                     tools: [{ googleSearch: {} }]
@@ -215,18 +261,28 @@ export const verifyScamWithSearch = async (text: string): Promise<SearchVerifica
                 sources: sources
             };
         } catch (error: any) {
-            const isOverloaded = error?.status === 503 || (error?.message && (error.message.includes('overloaded') || error.message.includes('503')));
-            
-            if (isOverloaded && attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            if (isRetryableError(error) && attempt < maxRetries - 1) {
+                const delay = 3000 * Math.pow(2, attempt);
+                await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
-            console.warn("Search Verification Error (Non-fatal):", error);
-            // Return fallback instead of throwing to prevent UI crash
-            return { text: "Online verification temporarily unavailable.", sources: [] };
+            throw error;
+        }
+      }
+      throw new Error("Max retries exceeded");
+    };
+
+    try {
+        return await generateWithModel("gemini-3-pro-preview");
+    } catch (e) {
+        console.warn("Search verification with Pro failed, trying Flash fallback (without search tools if needed, but trying standard first)...");
+        try {
+            // gemini-2.5-flash supports grounding usually, but if it fails, we return unavailable
+            return await generateWithModel("gemini-2.5-flash");
+        } catch (e2) {
+             return { text: "Online verification unavailable due to high traffic.", sources: [] };
         }
     }
-    return { text: "Online verification unavailable.", sources: [] };
 }
 
 export const generateSpeech = async (text: string): Promise<string> => {
@@ -236,7 +292,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const maxRetries = 2;
+    const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             const response = await ai.models.generateContent({
@@ -258,9 +314,10 @@ export const generateSpeech = async (text: string): Promise<string> => {
             if (!base64Audio) throw new Error("No audio generated");
             return base64Audio;
         } catch (error: any) {
-             const isOverloaded = error?.status === 503;
-            if (isOverloaded && attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            if (isRetryableError(error) && attempt < maxRetries - 1) {
+                const delay = 3000 * Math.pow(2, attempt);
+                console.warn(`Model overloaded in generateSpeech, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
             console.error("TTS Error:", error);
@@ -289,29 +346,43 @@ export const askFollowUpQuestion = async (
     ${question}
     `;
 
-    const maxRetries = 2;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                config: {
-                    systemInstruction: FOLLOW_UP_SYSTEM_PROMPT,
-                },
-                contents: {
-                    parts: [{ text: context }]
+    const generateWithModel = async (modelName: string) => {
+        const maxRetries = 3;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const response = await ai.models.generateContent({
+                    model: modelName,
+                    config: {
+                        systemInstruction: FOLLOW_UP_SYSTEM_PROMPT,
+                    },
+                    contents: {
+                        parts: [{ text: context }]
+                    }
+                });
+                if (!response.text) throw new Error("No response");
+                return response.text;
+            } catch (error: any) {
+                if (isRetryableError(error) && attempt < maxRetries - 1) {
+                    const delay = 3000 * Math.pow(2, attempt);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
                 }
-            });
-            return response.text || "I'm sorry, I couldn't understand that. Please ask a trusted family member.";
-        } catch (error: any) {
-             const isOverloaded = error?.status === 503;
-            if (isOverloaded && attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                continue;
+                throw error;
             }
-            return "I'm having trouble connecting right now. Please try again later.";
+        }
+        throw new Error("Max retries exceeded");
+    };
+
+    try {
+        return await generateWithModel("gemini-3-pro-preview");
+    } catch (e) {
+        console.warn("Follow-up with Pro failed, falling back to Flash");
+        try {
+            return await generateWithModel("gemini-2.5-flash");
+        } catch (e2) {
+             return "I'm currently experiencing high traffic and cannot answer. Please try again in a few minutes.";
         }
     }
-    return "I'm having trouble connecting right now.";
 }
 
 // ---------- Scam News (dynamic) ----------
@@ -353,7 +424,7 @@ Return top 25 scam-related news stories from the last 12 months relevant to the 
 Output JSON only: { "items": [{ "title": "...", "summary": "...", "date": "YYYY-MM-DD", "source": "...", "link": "...", "severity": "high|medium|low", "tags": ["city:<slug>", "global"] }] }
 `;
 
-  const maxRetries = 2;
+  const maxRetries = 3;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const res = await ai.models.generateContent({
@@ -370,9 +441,10 @@ Output JSON only: { "items": [{ "title": "...", "summary": "...", "date": "YYYY-
       const items = (parsed.items || []) as ScamNewsItem[];
       return { items, warning: null, error: null };
     } catch (err: any) {
-       const isOverloaded = err?.status === 503;
-      if (isOverloaded && attempt < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      if (isRetryableError(err) && attempt < maxRetries - 1) {
+        const delay = 3000 * Math.pow(2, attempt);
+        console.warn(`Model overloaded in fetchScamNews, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
       return { items: [] as ScamNewsItem[], warning: err.message, error: err.message };

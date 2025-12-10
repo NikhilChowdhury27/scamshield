@@ -4,6 +4,7 @@ import { analyzeContent, verifyScamWithSearch } from '../services/geminiService'
 import ResultCard from '../components/ResultCard';
 import FollowUpChat from '../components/FollowUpChat';
 import { useScamHistory } from '../hooks/useScamHistory';
+import { useLocation } from '../context/LocationContext';
 import { Mic, Image as ImageIcon, Loader2, Trash2, X, ArrowLeft, Lock, Zap, Heart, Sparkles, FileText, Radio, Upload, ChevronRight, Shield, Languages, Plus, ChevronDown, Play, Pause } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import * as THREE from 'three';
@@ -101,6 +102,7 @@ const CheckMessageView: React.FC = () => {
   const lastActivityTimeRef = useRef<number>(0);
 
   const { addToHistory } = useScamHistory();
+  const { getLocationString } = useLocation();
 
   useEffect(() => {
     return () => {
@@ -179,7 +181,7 @@ const CheckMessageView: React.FC = () => {
     analyzeTimeoutRef.current = window.setTimeout(async () => {
       try {
         lastAnalyzedIndexRef.current = transcript.length;
-        await analyzeContent(transcript, []); // lightweight check
+        await analyzeContent(transcript, [], getLocationString()); // lightweight check
         setRiskLevel(prev => Math.min(1, prev + 0.1));
       } catch (err) {
         console.error('Live chunk analysis failed', err);
@@ -690,7 +692,7 @@ const CheckMessageView: React.FC = () => {
         const combinedText = additionalText ? `${contextText}\n\n[ADDITIONAL TEXT]: ${additionalText}` : contextText;
         const allFiles = [audioFile, ...(additionalFiles || [])];
         const [result, searchVerification] = await Promise.all([
-             analyzeContent(combinedText, allFiles),
+             analyzeContent(combinedText, allFiles, getLocationString()),
              combinedText ? verifyScamWithSearch(combinedText) : Promise.resolve(undefined)
         ]);
         setAnalysis(result.analysis);
@@ -714,7 +716,7 @@ const CheckMessageView: React.FC = () => {
     setError(null);
     try {
       const [result, searchVerification] = await Promise.all([
-          analyzeContent(text, files),
+          analyzeContent(text, files, getLocationString()),
           text ? verifyScamWithSearch(text) : Promise.resolve(undefined)
       ]);
       setAnalysis(result.analysis);
@@ -905,7 +907,7 @@ const CheckMessageView: React.FC = () => {
 
   if (analysis) {
     return (
-      <div className="space-y-8 animate-slide-up">
+      <div className="space-y-4 animate-slide-up pb-4">
         <button 
           onClick={handleReset}
           className="flex items-center gap-2 text-stone-500 hover:text-orange-600 dark:text-stone-400 dark:hover:text-orange-400 transition-colors font-medium group"
