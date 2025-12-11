@@ -5,6 +5,11 @@
   <img width="2400" height="1792" alt="image" src="https://github.com/user-attachments/assets/a047e1c7-c031-4d1c-a0ab-c5198f8b27c8" />
   <br />
   <br />
+  
+  <h3>🚀 <a href="https://scamshield-120207655828.us-west1.run.app/" target="_blank">Live Demo</a></h3>
+  <p><a href="https://scamshield-120207655828.us-west1.run.app/" target="_blank">https://scamshield-120207655828.us-west1.run.app/</a></p>
+  
+  <br />
   <a href="https://react.dev/">
     <img src="https://img.shields.io/badge/Built_with-React-61DAFB?style=for-the-badge&logo=react" alt="React" />
   </a>
@@ -205,6 +210,7 @@ ScamShield leverages **Gemini 3 Pro's native multimodality** to analyze multiple
 
 ## 📝 Submission Requirements
 
+- ✅ **Live Demo:** [https://scamshield-120207655828.us-west1.run.app/](https://scamshield-120207655828.us-west1.run.app/)
 - ✅ **Video Demo:** [Link to be added]
 - ✅ **Public AI Studio App Link:** [Link to be added]
 - ✅ **Kaggle Writeup:** [Link to be added]
