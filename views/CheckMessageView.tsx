@@ -45,9 +45,9 @@ const CheckMessageView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
-  
+
   const { addToast } = useToast();
-  
+
   // Input state
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileInput[]>([]);
@@ -62,7 +62,7 @@ const CheckMessageView: React.FC = () => {
   const inlineAudioChunksRef = useRef<Blob[]>([]);
   const inlineStreamRef = useRef<MediaStream | null>(null);
   const inlineTimerRef = useRef<any>(null);
-  
+
   // Live Monitor State (Full screen mode)
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -73,11 +73,11 @@ const CheckMessageView: React.FC = () => {
   const [riskLevel, setRiskLevel] = useState<number>(0);
   const [riskMessage, setRiskMessage] = useState<string>('');
   const [speechSupported] = useState<boolean>(typeof window !== 'undefined' && (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition));
-  
+
   // Live Monitor Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]); 
+  const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const lastAnalyzedIndexRef = useRef<number>(0);
   const analyzeTimeoutRef = useRef<number | null>(null);
@@ -88,10 +88,10 @@ const CheckMessageView: React.FC = () => {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<any>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null); 
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const transcriptBoxRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
-  
+
   // Visualizer refs
   const visualizerContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -100,7 +100,7 @@ const CheckMessageView: React.FC = () => {
   const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sphereMeshRef = useRef<THREE.Points | null>(null);
   const originalPositionsRef = useRef<Float32Array | null>(null);
-  
+
   const lastActivityTimeRef = useRef<number>(0);
 
   const { addToHistory } = useScamHistory();
@@ -120,7 +120,7 @@ const CheckMessageView: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       inlineStreamRef.current = stream;
-      
+
       const mediaRecorder = new MediaRecorder(stream);
       inlineMediaRecorderRef.current = mediaRecorder;
       inlineAudioChunksRef.current = [];
@@ -134,7 +134,7 @@ const CheckMessageView: React.FC = () => {
       mediaRecorder.start();
       setIsInlineRecording(true);
       setInlineRecordingDuration(0);
-      
+
       inlineTimerRef.current = setInterval(() => {
         setInlineRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -152,13 +152,13 @@ const CheckMessageView: React.FC = () => {
         const audioBlob = new Blob(inlineAudioChunksRef.current, { type: mimeType });
         const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
         const audioFile = new File([audioBlob], `voice_note_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
-        
+
         const newFile: FileInput = {
           file: audioFile,
           previewUrl: URL.createObjectURL(audioBlob),
           type: 'audio'
         };
-        
+
         setFiles(prev => [...prev, newFile]);
         cleanupInlineRecording();
       };
@@ -171,8 +171,8 @@ const CheckMessageView: React.FC = () => {
   const cleanupInlineRecording = () => {
     if (inlineTimerRef.current) clearInterval(inlineTimerRef.current);
     if (inlineStreamRef.current) {
-        inlineStreamRef.current.getTracks().forEach(track => track.stop());
-        inlineStreamRef.current = null;
+      inlineStreamRef.current.getTracks().forEach(track => track.stop());
+      inlineStreamRef.current = null;
     }
     setIsInlineRecording(false);
     setInlineRecordingDuration(0);
@@ -302,20 +302,20 @@ const CheckMessageView: React.FC = () => {
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stop();
     }
     if (inputAudioContextRef.current) {
-        inputAudioContextRef.current.close();
-        inputAudioContextRef.current = null;
+      inputAudioContextRef.current.close();
+      inputAudioContextRef.current = null;
     }
     if (processorRef.current) {
-        processorRef.current.disconnect();
-        processorRef.current = null;
+      processorRef.current.disconnect();
+      processorRef.current = null;
     }
-    
+
     if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
     }
   };
 
@@ -366,7 +366,7 @@ const CheckMessageView: React.FC = () => {
     visualizerContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     analyserRef.current = visualizerContextRef.current.createAnalyser();
     const source = visualizerContextRef.current.createMediaStreamSource(stream);
-    
+
     source.connect(analyserRef.current);
     analyserRef.current.fftSize = 256;
     const bufferLength = analyserRef.current.frequencyBinCount;
@@ -393,33 +393,33 @@ const CheckMessageView: React.FC = () => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const originalPositions = new Float32Array(particleCount * 3);
-    
+
     const colorTop = new THREE.Color(0xF97316);
     const colorBottom = new THREE.Color(0x0592F0);
     const radius = 0.75;
 
     for (let i = 0; i < particleCount; i++) {
-        const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
-        const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+      const phi = Math.acos(1 - 2 * (i + 0.5) / particleCount);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
 
-        const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = radius * Math.sin(phi) * Math.sin(theta);
-        const z = radius * Math.cos(phi);
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.sin(phi) * Math.sin(theta);
+      const z = radius * Math.cos(phi);
 
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
 
       originalPositions[i * 3] = x;
       originalPositions[i * 3 + 1] = y;
       originalPositions[i * 3 + 2] = z;
 
-        const normalizedY = (y / radius + 1) / 2;
-        const c = new THREE.Color().copy(colorBottom).lerp(colorTop, normalizedY);
-        
-        colors[i * 3] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
+      const normalizedY = (y / radius + 1) / 2;
+      const c = new THREE.Color().copy(colorBottom).lerp(colorTop, normalizedY);
+
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -440,10 +440,10 @@ const CheckMessageView: React.FC = () => {
     sphereMeshRef.current = sphere;
 
     const animate = () => {
-        if (!analyserRef.current || !sphereMeshRef.current || !originalPositionsRef.current) return;
-        
-        animationFrameRef.current = requestAnimationFrame(animate);
-        analyserRef.current.getByteFrequencyData(dataArray);
+      if (!analyserRef.current || !sphereMeshRef.current || !originalPositionsRef.current) return;
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+      analyserRef.current.getByteFrequencyData(dataArray);
 
       const time = performance.now() * 0.001;
 
@@ -529,14 +529,14 @@ const CheckMessageView: React.FC = () => {
   const stopVisualizer = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (threeRendererRef.current && canvasContainerRef.current) {
-        if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
-            canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
-        }
-        threeRendererRef.current.dispose();
+      if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
+        canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
+      }
+      threeRendererRef.current.dispose();
     }
     if (sphereMeshRef.current) {
-        sphereMeshRef.current.geometry.dispose();
-        (sphereMeshRef.current.material as THREE.Material).dispose();
+      sphereMeshRef.current.geometry.dispose();
+      (sphereMeshRef.current.material as THREE.Material).dispose();
     }
     if (visualizerContextRef.current) {
       visualizerContextRef.current.close();
@@ -559,8 +559,8 @@ const CheckMessageView: React.FC = () => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream; 
-      
+      mediaStreamRef.current = stream;
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -575,10 +575,10 @@ const CheckMessageView: React.FC = () => {
       const apiKey = process.env.API_KEY;
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
-      
+
         const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
         inputAudioContextRef.current = inputCtx;
-        
+
         const source = inputCtx.createMediaStreamSource(stream);
         const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
         processorRef.current = scriptProcessor;
@@ -593,27 +593,27 @@ const CheckMessageView: React.FC = () => {
           },
           callbacks: {
             onopen: () => {
-                scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
-                    const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                    const pcmBlob = createBlob(inputData);
-                    sessionPromise.then((session) => { session.sendRealtimeInput({ media: pcmBlob }); });
-                };
-                source.connect(scriptProcessor);
-                scriptProcessor.connect(inputCtx.destination);
+              scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                const pcmBlob = createBlob(inputData);
+                sessionPromise.then((session) => { session.sendRealtimeInput({ media: pcmBlob }); });
+              };
+              source.connect(scriptProcessor);
+              scriptProcessor.connect(inputCtx.destination);
             },
             onmessage: (message: LiveServerMessage) => {
-                const transcript = message.serverContent?.inputTranscription?.text || (message.serverContent as any)?.outputText || (message as any)?.text || '';
-                if (transcript) {
-                    transcriptBufferRef.current += transcript + '\n';
-                    setTranscriptPreview(transcriptBufferRef.current.trim());
-                }
+              const transcript = message.serverContent?.inputTranscription?.text || (message.serverContent as any)?.outputText || (message as any)?.text || '';
+              if (transcript) {
+                transcriptBufferRef.current += transcript + '\n';
+                setTranscriptPreview(transcriptBufferRef.current.trim());
+              }
             },
             onclose: () => { console.log('[Gemini Live Session] Closed'); },
             onerror: (err) => {
-                console.error("[Gemini Live Session] Error:", err);
-                const msg = `Transcription error: ${err.message || 'Unknown error'}`;
-                setError(msg);
-                addToast(msg, 'error');
+              console.error("[Gemini Live Session] Error:", err);
+              const msg = `Transcription error: ${err.message || 'Unknown error'}`;
+              setError(msg);
+              addToast(msg, 'error');
             }
           }
         });
@@ -628,11 +628,11 @@ const CheckMessageView: React.FC = () => {
         setRiskMessage(msg);
         addToast(msg, 'warning');
       }
-      
+
       setIsRecordingMode(true);
       setRecordingDuration(0);
       setTimeout(() => startVisualizer(stream), 100);
-      
+
       timerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -653,24 +653,24 @@ const CheckMessageView: React.FC = () => {
     stopTranscriptFlushTimer();
     if (mediaRecorderRef.current && isRecordingMode) {
       mediaRecorderRef.current.onstop = () => {
-         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-         const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
-         const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
-         
-         const newFile: FileInput = {
-            file: audioFile,
-            previewUrl: URL.createObjectURL(audioBlob),
-            type: 'audio'
-          };
-         setIsRecordingMode(false);
-         cleanupAudioResources();
-         analyzeDirectly(newFile);
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
+        const audioFile = new File([audioBlob], `conversation_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
+
+        const newFile: FileInput = {
+          file: audioFile,
+          previewUrl: URL.createObjectURL(audioBlob),
+          type: 'audio'
+        };
+        setIsRecordingMode(false);
+        cleanupAudioResources();
+        analyzeDirectly(newFile);
       };
       mediaRecorderRef.current.stop();
     } else {
-        cleanupAudioResources();
-        setIsRecordingMode(false);
+      cleanupAudioResources();
+      setIsRecordingMode(false);
     }
   };
 
@@ -687,30 +687,30 @@ const CheckMessageView: React.FC = () => {
   };
 
   const analyzeDirectly = async (audioFile: FileInput, additionalText?: string, additionalFiles?: FileInput[]) => {
-      setIsLoading(true);
-      setRecordedAudioUrl(audioFile.previewUrl);
-      
-      try {
-        const languageContext = language ? `[DETECTED LANGUAGE]: ${language}\n` : "";
-        const contextText = liveTranscript ? `${languageContext}[PARTIAL TRANSCRIPT FROM LIVE SESSION]: ${liveTranscript}` : languageContext;
-        const combinedText = additionalText ? `${contextText}\n\n[ADDITIONAL TEXT]: ${additionalText}` : contextText;
-        const allFiles = [audioFile, ...(additionalFiles || [])];
-        const [result, searchVerification] = await Promise.all([
-             analyzeContent(combinedText, allFiles, getLocationString()),
-             combinedText ? verifyScamWithSearch(combinedText) : Promise.resolve(undefined)
-        ]);
-        setAnalysis(result.analysis);
-        setSearchResult(searchVerification);
-        addToHistory({ ...result.analysis }); 
-        setText('');
-        setFiles([]);
-      } catch (err: any) {
-        const msg = err.message || "Something went wrong analyzing the audio.";
-        setError(msg);
-        addToast(msg, 'error');
-      } finally {
-        setIsLoading(false);
-      }
+    setIsLoading(true);
+    setRecordedAudioUrl(audioFile.previewUrl);
+
+    try {
+      const languageContext = language ? `[DETECTED LANGUAGE]: ${language}\n` : "";
+      const contextText = liveTranscript ? `${languageContext}[PARTIAL TRANSCRIPT FROM LIVE SESSION]: ${liveTranscript}` : languageContext;
+      const combinedText = additionalText ? `${contextText}\n\n[ADDITIONAL TEXT]: ${additionalText}` : contextText;
+      const allFiles = [audioFile, ...(additionalFiles || [])];
+      const [result, searchVerification] = await Promise.all([
+        analyzeContent(combinedText, allFiles, getLocationString()),
+        combinedText ? verifyScamWithSearch(combinedText) : Promise.resolve(undefined)
+      ]);
+      setAnalysis(result.analysis);
+      setSearchResult(searchVerification);
+      addToHistory({ ...result.analysis });
+      setText('');
+      setFiles([]);
+    } catch (err: any) {
+      const msg = err.message || "Something went wrong analyzing the audio.";
+      setError(msg);
+      addToast(msg, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAnalyzeForm = async (e: React.FormEvent) => {
@@ -722,8 +722,8 @@ const CheckMessageView: React.FC = () => {
     setRecordedAudioUrl(null);
     try {
       const [result, searchVerification] = await Promise.all([
-          analyzeContent(text, files, getLocationString()),
-          text ? verifyScamWithSearch(text) : Promise.resolve(undefined)
+        analyzeContent(text, files, getLocationString()),
+        text ? verifyScamWithSearch(text) : Promise.resolve(undefined)
       ]);
       setAnalysis(result.analysis);
       setSearchResult(searchVerification);
@@ -756,38 +756,39 @@ const CheckMessageView: React.FC = () => {
 
   // Loading Screen
   if (isLoading) {
-      return (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in text-center space-y-6">
-              <div className="relative w-24 h-24">
-                  <div className="absolute inset-0 rounded-full border-4 border-stone-200 dark:border-stone-800"></div>
-                  <div className="absolute inset-0 rounded-full border-4 border-t-orange-500 animate-spin"></div>
-                  <Shield className="absolute inset-0 m-auto w-10 h-10 text-orange-500 animate-pulse" />
-              </div>
-              <div>
-                  <h3 className="text-2xl font-bold text-txt dark:text-txt-dark mb-2">Analyzing...</h3>
-                  <p className="text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
-                      Our AI is checking for scam patterns, known threats, and suspicious language.
-                  </p>
-              </div>
-          </div>
-      )
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in text-center space-y-6">
+        <div className="relative w-24 h-24">
+          <div className="absolute inset-0 rounded-full border-4 border-stone-200 dark:border-stone-800"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-t-orange-500 animate-spin"></div>
+          <Shield className="absolute inset-0 m-auto w-10 h-10 text-orange-500 animate-pulse" />
+        </div>
+        <div>
+          <h3 className="text-2xl font-bold text-txt dark:text-txt-dark mb-2">Analyzing...</h3>
+          <p className="text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
+            Our AI is checking for scam patterns, known threats, and suspicious language.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (analysis) {
     return (
       <div className="space-y-4 animate-slide-up pb-4">
-        <button 
+        <button
           onClick={handleReset}
           className="flex items-center gap-2 text-stone-500 hover:text-orange-600 dark:text-stone-400 dark:hover:text-orange-400 transition-colors font-medium group"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          Check Another Message
+          Go back
         </button>
-        <ResultCard 
-            analysis={analysis} 
-            searchResult={searchResult} 
-            timestamp={Date.now()} 
-            userInputs={{ text, files, recordedAudioUrl: recordedAudioUrl || undefined }}
+        <ResultCard
+          analysis={analysis}
+          searchResult={searchResult}
+          timestamp={Date.now()}
+          userInputs={{ text, files, recordedAudioUrl: recordedAudioUrl || undefined }}
+          onBack={handleReset}
         />
         <FollowUpChat analysis={analysis} />
       </div>
@@ -796,7 +797,7 @@ const CheckMessageView: React.FC = () => {
 
   // Full Screen Live Monitor
   if (isRecordingMode) {
-      return (
+    return (
       <div className="fixed inset-0 md:left-72 z-50 bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
         <div className="spline-container absolute top-0 left-0 w-full h-full -z-10">
           <iframe
@@ -821,7 +822,7 @@ const CheckMessageView: React.FC = () => {
           </h2>
         </div>
         <div className="relative flex-1 w-full max-w-6xl min-h-0 flex items-center justify-center">
-            <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
+          <div ref={canvasContainerRef} className="w-full h-full relative z-10" />
         </div>
         <div className="flex flex-col items-center gap-6 z-20 mb-8 mt-4 flex-shrink-0">
           <canvas ref={waveformCanvasRef} width={400} height={40} className="w-96 h-10 opacity-80" />
@@ -834,7 +835,7 @@ const CheckMessageView: React.FC = () => {
           </button>
         </div>
       </div>
-      )
+    )
   }
 
   // --- Main Render: Unified Dashboard ---
@@ -858,11 +859,11 @@ const CheckMessageView: React.FC = () => {
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl shadow-sm animate-scale-in flex items-center gap-3">
           <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full">
-             <X className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </div>
           <div>
-             <p className="font-bold">Error</p>
-             <p className="text-sm">{error}</p>
+            <p className="font-bold">Error</p>
+            <p className="text-sm">{error}</p>
           </div>
         </div>
       )}
@@ -901,7 +902,7 @@ const CheckMessageView: React.FC = () => {
                 <h3 className="text-xl font-display font-bold text-white mb-1">Monitor a Phone Call</h3>
                 <p className="text-stone-300 text-sm">Select Monitor Phone Call, and answer your incoming call. Turn on speaker mode and ScamShield will listen and detect scam patterns instantly.</p>
               </div>
-              <div className="hidden sm:flex items-center justify-center w-10 h-10 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors">
+              <div className="hidden sm:flex items-center justify-center w-10 h-10 bg-white/10 rounded-xl group-hover:bg-orange-500 transition-colors flex-shrink-0">
                 <ChevronRight className="w-5 h-5 text-white" />
               </div>
             </div>
@@ -917,117 +918,117 @@ const CheckMessageView: React.FC = () => {
 
         {/* Unified Input Composer */}
         <div className="bg-surface dark:bg-surface-dark rounded-3xl border border-border dark:border-border-dark shadow-sm overflow-hidden transition-all focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500/50">
-            
-            {/* Text Input Area */}
-            <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={isInlineRecording ? "" : "Paste the message, email, or suspicious text here..."}
-                disabled={isInlineRecording}
-                className={`w-full p-6 bg-transparent resize-none outline-none text-lg text-txt dark:text-txt-dark placeholder-stone-400 dark:placeholder-stone-600 transition-all ${isInlineRecording ? 'h-0 opacity-0 p-0' : 'min-h-[140px]'}`}
-            />
 
-            {/* Inline Recorder UI */}
-            {isInlineRecording && (
-                <div className="p-8 bg-red-50 dark:bg-red-900/10 flex flex-col items-center justify-center gap-4 animate-fade-in border-b border-red-100 dark:border-red-900/30">
-                    <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-2xl font-mono font-bold text-red-600 dark:text-red-400">
-                            {formatTime(inlineRecordingDuration)}
-                        </span>
-                    </div>
-                    <p className="text-sm text-red-500 dark:text-red-400 font-medium">Recording voice note...</p>
-                    <button 
-                        onClick={stopInlineRecording}
-                        className="flex items-center gap-2 px-6 py-2 bg-white dark:bg-red-950 text-red-600 dark:text-red-400 rounded-full text-sm font-bold shadow-sm border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
-                    >
-                        <StopCircle className="w-4 h-4" />
-                        Stop & Add
-                    </button>
-                </div>
-            )}
+          {/* Text Input Area */}
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={isInlineRecording ? "" : "Paste the message, email, or suspicious text here..."}
+            disabled={isInlineRecording}
+            className={`w-full p-6 bg-transparent resize-none outline-none text-lg text-txt dark:text-txt-dark placeholder-stone-400 dark:placeholder-stone-600 transition-all ${isInlineRecording ? 'h-0 opacity-0 p-0' : 'min-h-[140px]'}`}
+          />
 
-            {/* Attachments Preview */}
-            {files.length > 0 && (
-                <div className="px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {files.map((file, idx) => (
-                        <div key={idx} className="relative group rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 aspect-video flex items-center justify-center">
-                            {file.type === 'image' ? (
-                                <img src={file.previewUrl} className="w-full h-full object-cover" alt="Preview" />
-                            ) : (
-                                <div className="flex flex-col items-center gap-1 p-2 text-center">
-                                    <FileAudio className="w-6 h-6 text-orange-500" />
-                                    <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate max-w-[100px]">{file.file.name}</span>
-                                </div>
-                            )}
-                            <button 
-                                onClick={() => removeFile(idx)} 
-                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                            >
-                                <X className="w-3 h-3" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
+          {/* Inline Recorder UI */}
+          {isInlineRecording && (
+            <div className="p-8 bg-red-50 dark:bg-red-900/10 flex flex-col items-center justify-center gap-4 animate-fade-in border-b border-red-100 dark:border-red-900/30">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-2xl font-mono font-bold text-red-600 dark:text-red-400">
+                  {formatTime(inlineRecordingDuration)}
+                </span>
+              </div>
+              <p className="text-sm text-red-500 dark:text-red-400 font-medium">Recording voice note...</p>
+              <button
+                onClick={stopInlineRecording}
+                className="flex items-center gap-2 px-6 py-2 bg-white dark:bg-red-950 text-red-600 dark:text-red-400 rounded-full text-sm font-bold shadow-sm border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <StopCircle className="w-4 h-4" />
+                Stop & Add
+              </button>
+            </div>
+          )}
 
-            {/* Actions Toolbar */}
-            {!isInlineRecording && (
-                <div className="px-6 py-4 bg-stone-50 dark:bg-stone-900/50 border-t border-border dark:border-border-dark flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        {/* Hidden Inputs */}
-                        <input type="file" ref={imageInputRef} onChange={handleImageChange} accept="image/*" multiple className="hidden" />
-                        <input type="file" ref={audioInputRef} onChange={handleAudioChange} accept="audio/*" multiple className="hidden" />
-                        
-                        <button 
-                            onClick={() => imageInputRef.current?.click()}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all text-sm font-medium shadow-sm"
-                        >
-                            <ImageIcon className="w-4 h-4" />
-                            <span className="hidden sm:inline">Add Photo</span>
-                        </button>
-                        <button 
-                            onClick={() => audioInputRef.current?.click()}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-200 dark:hover:border-purple-800 hover:text-purple-600 dark:hover:text-purple-400 transition-all text-sm font-medium shadow-sm"
-                        >
-                            <Upload className="w-4 h-4" />
-                            <span className="hidden sm:inline">Upload Audio</span>
-                        </button>
-                        <button 
-                            onClick={startInlineRecording}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-all text-sm font-medium shadow-sm group"
-                        >
-                            <Mic className="w-4 h-4 group-hover:animate-pulse" />
-                            <span className="hidden sm:inline">Record Audio</span>
-                        </button>
+          {/* Attachments Preview */}
+          {files.length > 0 && (
+            <div className="px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {files.map((file, idx) => (
+                <div key={idx} className="relative group rounded-xl overflow-hidden bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 aspect-video flex items-center justify-center">
+                  {file.type === 'image' ? (
+                    <img src={file.previewUrl} className="w-full h-full object-cover" alt="Preview" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 p-2 text-center">
+                      <FileAudio className="w-6 h-6 text-orange-500" />
+                      <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate max-w-[100px]">{file.file.name}</span>
                     </div>
-                    <div className="text-xs text-stone-400 font-medium">
-                        {text.length} chars
-                    </div>
+                  )}
+                  <button
+                    onClick={() => removeFile(idx)}
+                    className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-            )}
+              ))}
+            </div>
+          )}
+
+          {/* Actions Toolbar */}
+          {!isInlineRecording && (
+            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-900/50 border-t border-border dark:border-border-dark flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {/* Hidden Inputs */}
+                <input type="file" ref={imageInputRef} onChange={handleImageChange} accept="image/*" multiple className="hidden" />
+                <input type="file" ref={audioInputRef} onChange={handleAudioChange} accept="audio/*" multiple className="hidden" />
+
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all text-sm font-medium shadow-sm"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Add Photo</span>
+                </button>
+                <button
+                  onClick={() => audioInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-200 dark:hover:border-purple-800 hover:text-purple-600 dark:hover:text-purple-400 transition-all text-sm font-medium shadow-sm"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span className="hidden sm:inline">Upload Audio</span>
+                </button>
+                <button
+                  onClick={startInlineRecording}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-all text-sm font-medium shadow-sm group"
+                >
+                  <Mic className="w-4 h-4 group-hover:animate-pulse" />
+                  <span className="hidden sm:inline">Record Audio</span>
+                </button>
+              </div>
+              <div className="text-xs text-stone-400 font-medium">
+                {text.length} Characters
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Submit Button */}
         <button
-            onClick={handleAnalyzeForm}
-            disabled={isLoading || (!hasContent && !isInlineRecording)}
-            className={`w-full py-4 rounded-2xl text-lg font-bold transition-all btn-press relative overflow-hidden ${isLoading || (!hasContent && !isInlineRecording)
+          onClick={handleAnalyzeForm}
+          disabled={isLoading || (!hasContent && !isInlineRecording)}
+          className={`w-full py-4 rounded-2xl text-lg font-bold transition-all btn-press relative overflow-hidden ${isLoading || (!hasContent && !isInlineRecording)
             ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 dark:text-stone-600 cursor-not-allowed'
             : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl shadow-orange-500/25 transform hover:scale-[1.01]'
             }`}
         >
-            {isLoading ? (
+          {isLoading ? (
             <span className="flex items-center justify-center gap-3">
-                <Loader2 className="animate-spin h-5 w-5" />
-                Analyzing content...
+              <Loader2 className="animate-spin h-5 w-5" />
+              Analyzing content...
             </span>
-            ) : (
+          ) : (
             <span className="flex items-center justify-center gap-3">
-                <Shield className="w-5 h-5" />
-                {hasContent ? 'Analyze Content' : 'Add content to analyze'}
+              <Shield className="w-5 h-5" />
+              {hasContent ? 'Analyze Content' : 'Add content to analyze'}
             </span>
-            )}
+          )}
         </button>
 
       </div>
@@ -1043,7 +1044,7 @@ const CheckMessageView: React.FC = () => {
             <item.icon className={`w-6 h-6 mx-auto mb-2 text-${item.color}-500`} />
             <p className="font-bold text-sm text-txt dark:text-txt-dark">{item.label}</p>
             <p className="text-xs text-stone-400">{item.desc}</p>
-            </div>
+          </div>
         ))}
       </div>
     </div>

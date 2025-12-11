@@ -1,6 +1,6 @@
 import React from 'react';
 import { useScamHistory } from '../hooks/useScamHistory';
-import { Clock, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Search, History } from 'lucide-react';
+import { Clock, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Search, History, Mail, TrendingUp, AlertTriangle, Briefcase, ShoppingBag, Headphones, HelpCircle, FileText } from 'lucide-react';
 
 const HistoryView: React.FC = () => {
   const { history, clearHistory } = useScamHistory();
@@ -12,6 +12,7 @@ const HistoryView: React.FC = () => {
           bg: 'bg-red-50 dark:bg-red-900/20',
           border: 'border-red-200 dark:border-red-800/50',
           badge: 'bg-red-500 text-white',
+          text: 'text-red-500',
           icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
         };
       case 'MEDIUM':
@@ -19,6 +20,7 @@ const HistoryView: React.FC = () => {
           bg: 'bg-amber-50 dark:bg-amber-900/20',
           border: 'border-amber-200 dark:border-amber-800/50',
           badge: 'bg-amber-500 text-white',
+          text: 'text-amber-500',
           icon: <ShieldQuestion className="w-5 h-5 text-amber-500" />,
         };
       case 'LOW':
@@ -26,6 +28,7 @@ const HistoryView: React.FC = () => {
           bg: 'bg-emerald-50 dark:bg-emerald-900/20',
           border: 'border-emerald-200 dark:border-emerald-800/50',
           badge: 'bg-emerald-500 text-white',
+          text: 'text-emerald-500',
           icon: <ShieldCheck className="w-5 h-5 text-emerald-500" />,
         };
       default:
@@ -33,9 +36,62 @@ const HistoryView: React.FC = () => {
           bg: 'bg-stone-50 dark:bg-stone-800',
           border: 'border-stone-200 dark:border-stone-700',
           badge: 'bg-stone-500 text-white',
+          text: 'text-stone-500',
           icon: <ShieldQuestion className="w-5 h-5 text-stone-500" />,
         };
     }
+  };
+
+  const getScamTypeConfig = (type: string) => {
+    const lowerType = type.toLowerCase();
+
+    // Tech Support
+    if (lowerType.includes('tech') || lowerType.includes('support')) {
+      return {
+        style: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800',
+        icon: <Headphones className="w-3.5 h-3.5" /> // Tech support often associated with headsets
+      };
+    }
+    // Phishing / Links
+    if (lowerType.includes('phish') || lowerType.includes('link')) {
+      return {
+        style: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800',
+        icon: <Mail className="w-3.5 h-3.5" />
+      };
+    }
+    // Investment / Money
+    if (lowerType.includes('invest') || lowerType.includes('crypto') || lowerType.includes('money')) {
+      return {
+        style: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800',
+        icon: <TrendingUp className="w-3.5 h-3.5" />
+      };
+    }
+    // Urgent / Threat
+    if (lowerType.includes('urgent') || lowerType.includes('threat') || lowerType.includes('action')) {
+      return {
+        style: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800',
+        icon: <AlertTriangle className="w-3.5 h-3.5" />
+      };
+    }
+    // Job / Employment
+    if (lowerType.includes('job') || lowerType.includes('employ') || lowerType.includes('work')) {
+      return {
+        style: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800',
+        icon: <Briefcase className="w-3.5 h-3.5" />
+      };
+    }
+    // Shopping
+    if (lowerType.includes('shop') || lowerType.includes('buy') || lowerType.includes('sell')) {
+      return {
+        style: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800',
+        icon: <ShoppingBag className="w-3.5 h-3.5" />
+      };
+    }
+    // Default
+    return {
+      style: 'bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-300 border-stone-200 dark:border-stone-600',
+      icon: <FileText className="w-3.5 h-3.5" />
+    };
   };
 
   return (
@@ -53,7 +109,7 @@ const HistoryView: React.FC = () => {
             Review your past scam checks
           </p>
         </div>
-        
+
         {history.length > 0 && (
           <button
             onClick={clearHistory}
@@ -85,36 +141,66 @@ const HistoryView: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className={`p-5 rounded-2xl border-2 ${styles.border} ${styles.bg} transition-all hover-lift animate-slide-up`}
+                className="group relative bg-white dark:bg-[#1C1C1E] rounded-[1rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-stone-100 dark:border-stone-800 transition-all hover:scale-[1.01] animate-slide-up"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-start gap-4">
-                  {/* Risk Icon */}
-                  <div className="p-3 bg-white dark:bg-stone-800 rounded-xl shadow-sm">
-                    {styles.icon}
+                {/* Top Label */}
+                <div className="mb-4">
+                  <span className={`text-xs font-bold tracking-[0.2em] uppercase ${styles.text || 'text-stone-500'}`}>
+                    {item.analysis.risk_label} RISK
+                  </span>
+                </div>
+
+                <p className="text-stone-700 dark:text-stone-300 font-medium leading-relaxed text-sm mb-4">
+                  {item.analysis.summary_for_elder}
+                </p>
+
+                <div className="mb-6">
+                  {item.analysis.scam_type ? (
+                    (() => {
+                      const config = getScamTypeConfig(item.analysis.scam_type);
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${config.style}`}>
+                          {config.icon}
+                          <span className="capitalize tracking-wide">{item.analysis.scam_type.replace(/_/g, ' ')}</span>
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 text-stone-500 bg-stone-100 rounded-full text-xs font-bold">
+                      Uncategorized
+                    </span>
+                  )}
+                </div>
+
+                {/* Grid Details */}
+                <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 pt-4 border-t border-stone-100 dark:border-stone-800/50">
+                  <div>
+                    <span className="block text-[11px] font-bold text-stone-400 dark:text-stone-500 tracking-widest uppercase mb-2">
+                      DATE
+                    </span>
+                    <span className="text-base font-semibold text-stone-800 dark:text-stone-200">
+                      {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
                   </div>
-                  
-                  {/* Content */}
-                  <div className="flex-grow min-w-0">
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-bold ${styles.badge}`}>
-                        {item.analysis.risk_label} RISK
-                      </span>
-                      <span className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400 text-sm">
-                        <Clock className="w-4 h-4" />
-                        {new Date(item.timestamp).toLocaleDateString()} at {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  <div>
+                    <span className="block text-[11px] font-bold text-stone-400 dark:text-stone-500 tracking-widest uppercase mb-2">
+                      TIME
+                    </span>
+                    <span className="text-base font-semibold text-stone-800 dark:text-stone-200">
+                      {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-bold text-stone-400 dark:text-stone-500 tracking-widest uppercase mb-2">
+                      STATUS
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {styles.icon}
+                      <span className="text-base font-semibold text-stone-800 dark:text-stone-200 capitalize">
+                        {item.analysis.risk_label.toLowerCase()}
                       </span>
                     </div>
-                    
-                    <p className="text-txt dark:text-txt-dark font-medium text-lg line-clamp-2">
-                      {item.analysis.summary_for_elder}
-                    </p>
-                    
-                    {item.analysis.scam_type && (
-                      <p className="text-stone-500 dark:text-stone-400 text-sm mt-2">
-                        Type: <span className="font-medium">{item.analysis.scam_type}</span>
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>

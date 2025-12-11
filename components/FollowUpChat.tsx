@@ -38,15 +38,16 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [audioFile, setAudioFile] = useState<FileInput | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  
+  const textInputRef = useRef<HTMLInputElement>(null);
+
   const { addToast } = useToast();
-  
+
   // Recording state
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [transcriptPreview, setTranscriptPreview] = useState('');
-  
+
   // Recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -58,7 +59,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   const timerRef = useRef<any>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Visualizer refs
   const visualizerContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -78,7 +79,9 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0 || isLoading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading]);
 
   // Flush accumulated transcriptions to UI every 5 seconds
@@ -141,7 +144,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
     visualizerContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     analyserRef.current = visualizerContextRef.current.createAnalyser();
     const source = visualizerContextRef.current.createMediaStreamSource(stream);
-    
+
     source.connect(analyserRef.current);
     analyserRef.current.fftSize = 256;
     const bufferLength = analyserRef.current.frequencyBinCount;
@@ -168,7 +171,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const originalPositions = new Float32Array(particleCount * 3);
-    
+
     const colorTop = new THREE.Color(0xF97316);
     const colorBottom = new THREE.Color(0x0592F0);
     const radius = 0.75;
@@ -191,7 +194,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
       const normalizedY = (y / radius + 1) / 2;
       const c = new THREE.Color().copy(colorBottom).lerp(colorTop, normalizedY);
-      
+
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
@@ -216,7 +219,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
     const animate = () => {
       if (!analyserRef.current || !sphereMeshRef.current || !originalPositionsRef.current) return;
-      
+
       animationFrameRef.current = requestAnimationFrame(animate);
       analyserRef.current.getByteFrequencyData(dataArray);
 
@@ -271,7 +274,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
   const stopVisualizer = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    
+
     if (threeRendererRef.current && canvasContainerRef.current) {
       if (canvasContainerRef.current.contains(threeRendererRef.current.domElement)) {
         canvasContainerRef.current.removeChild(threeRendererRef.current.domElement);
@@ -288,7 +291,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
       visualizerContextRef.current.close();
       visualizerContextRef.current = null;
     }
-    
+
     threeSceneRef.current = null;
     threeCameraRef.current = null;
     threeRendererRef.current = null;
@@ -302,7 +305,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -317,10 +320,10 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
       const apiKey = process.env.API_KEY;
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
-      
+
         const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
         inputAudioContextRef.current = inputCtx;
-        
+
         const source = inputCtx.createMediaStreamSource(stream);
         const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
         processorRef.current = scriptProcessor;
@@ -376,11 +379,11 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
           startTranscriptFlushTimer();
         });
       }
-      
+
       setIsRecordingMode(true);
       setRecordingDuration(0);
       setTimeout(() => startVisualizer(stream), 100);
-      
+
       timerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -394,33 +397,33 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
   const stopAndAnalyze = async () => {
     stopTranscriptFlushTimer();
-    
+
     if (mediaRecorderRef.current && isRecordingMode) {
       mediaRecorderRef.current.onstop = async () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         const ext = mimeType.split(';')[0].split('/')[1] || 'webm';
         const audioFile = new File([audioBlob], `followup_${new Date().toLocaleTimeString()}.${ext}`, { type: mimeType });
-         
+
         const newFile: FileInput = {
           file: audioFile,
           previewUrl: URL.createObjectURL(audioBlob),
           type: 'audio'
         };
-        
+
         cleanupAudioResources();
         setIsRecordingMode(false);
-        
+
         // Add user message
         const userMsg: ChatMessage = { role: 'user', content: 'Recorded follow-up call audio' };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
-        
+
         try {
           const contextText = `Previous analysis context:\nRisk: ${analysis.risk_label}\nSummary: ${analysis.summary_for_elder}\n\nThis is a follow-up audio from the same caller. Analyze this new audio in the context of the previous analysis.${liveTranscript ? `\n\nPartial transcript: ${liveTranscript}` : ''}`;
           const result = await analyzeContent(contextText, [newFile]);
-          const botMsg: ChatMessage = { 
-            role: 'model', 
+          const botMsg: ChatMessage = {
+            role: 'model',
             content: result.analysis.summary_for_elder + (result.analysis.red_flags.length > 0 ? `\n\n⚠️ New Red Flags:\n${result.analysis.red_flags.map(f => `• ${f.title}: ${f.description_for_elder}`).join('\n')}` : '')
           };
           setMessages(prev => [...prev, botMsg]);
@@ -467,12 +470,12 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
       setIsLoading(true);
       const userMsg: ChatMessage = { role: 'user', content: 'Uploaded audio from follow-up call' };
       setMessages(prev => [...prev, userMsg]);
-      
+
       try {
         const contextText = `Previous analysis context:\nRisk: ${analysis.risk_label}\nSummary: ${analysis.summary_for_elder}\n\nThis is a follow-up audio from the same caller. Analyze this new audio in the context of the previous analysis.`;
         const result = await analyzeContent(contextText, [audioFile]);
-        const botMsg: ChatMessage = { 
-          role: 'model', 
+        const botMsg: ChatMessage = {
+          role: 'model',
           content: result.analysis.summary_for_elder + (result.analysis.red_flags.length > 0 ? `\n\n⚠️ New Red Flags:\n${result.analysis.red_flags.map(f => `• ${f.title}: ${f.description_for_elder}`).join('\n')}` : '')
         };
         setMessages(prev => [...prev, botMsg]);
@@ -537,7 +540,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
         >
           <X className="w-5 h-5" />
         </button>
-        
+
         <div className="text-center z-20 mt-8 mb-4 max-w-2xl flex-shrink-0">
           <h2 className="text-2xl md:text-3xl font-body font-normal text-txt dark:text-white tracking-wide">
             Recording follow-up call
@@ -573,42 +576,27 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   return (
     <>
       {/* 1. Messages Section: Renders in the normal document flow (not fixed) */}
-      <div className="w-full pb-32 animate-slide-up">
-        {/* Chat Header inside the flow */}
-        <div className="mb-6 flex items-center gap-3 opacity-80">
-          <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-xl">
-             <MessageSquare className="w-5 h-5 text-stone-500 dark:text-stone-400" />
-          </div>
-          <h3 className="font-bold text-lg text-txt dark:text-txt-dark">Have questions? Ask ScamShield</h3>
-        </div>
+      <div className="w-full pb-16 animate-slide-up grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-        {messages.length === 0 && (
-           <p className="text-stone-500 dark:text-stone-400 italic mb-8 ml-2">
-             Ask a follow-up question below...
-           </p>
-        )}
-
-        <div className="space-y-6">
+        <div className="lg:col-span-3 space-y-6">
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-slide-up`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border ${
-                  msg.role === 'user' 
-                    ? 'bg-gradient-to-br from-orange-100 to-red-50 dark:from-orange-900/40 dark:to-red-900/40 border-orange-100 dark:border-orange-800' 
-                    : 'bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700'
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border ${msg.role === 'user'
+                ? 'bg-gradient-to-br from-orange-100 to-red-50 dark:from-orange-900/40 dark:to-red-900/40 border-orange-100 dark:border-orange-800'
+                : 'bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700'
                 }`}>
                 {msg.role === 'user' ? <User className="w-5 h-5 text-orange-600 dark:text-orange-400" /> : <Sparkles className="w-5 h-5 text-orange-500" />}
               </div>
-              
-              <div className={`p-5 rounded-2xl max-w-[85%] text-base leading-relaxed shadow-sm ${
-                msg.role === 'user' 
-                  ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-tr-sm' 
-                  : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 rounded-tl-sm'
-              }`}>
+
+              <div className={`p-5 rounded-2xl max-w-[85%] text-base leading-relaxed shadow-sm ${msg.role === 'user'
+                ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-tr-sm'
+                : 'bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 rounded-tl-sm'
+                }`}>
                 {msg.content}
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex gap-4 animate-pulse">
               <div className="w-10 h-10 rounded-full bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 flex items-center justify-center flex-shrink-0">
@@ -626,8 +614,20 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
       </div>
 
       {/* 2. Input Section: Sticky at the bottom */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-72 z-40 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-t border-border dark:border-border-dark p-4 md:p-6">
-        <div className="max-w-4xl mx-auto">
+      <div
+        className="fixed bottom-0 left-0 right-0 md:left-72 z-40 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-t border-border dark:border-border-dark p-4 md:p-6 cursor-text"
+        onClick={(e) => {
+          // Verify we aren't clicking on a button or an interactive element
+          if (e.target instanceof HTMLElement && (
+            e.target.closest('button') ||
+            e.target.closest('input[type="file"]')
+          )) {
+            return;
+          }
+          textInputRef.current?.focus();
+        }}
+      >
+        <div className="mx-auto md:px-8 lg:px-12 max-w-6xl">
           {audioFile && (
             <div className="mb-3 flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-100 dark:border-orange-900/30 animate-slide-up w-fit">
               <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
@@ -654,56 +654,57 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
               accept="audio/*"
               className="hidden"
             />
-            
-            <div className="flex-grow flex items-center gap-2 bg-stone-100 dark:bg-stone-800 rounded-2xl p-2 border-2 border-transparent focus-within:border-orange-500/20 focus-within:bg-white dark:focus-within:bg-black transition-all shadow-sm">
-                <div className="flex items-center gap-1 pr-2 border-r border-stone-200 dark:border-stone-700">
-                    <button
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        startRecording();
-                    }}
-                    className="p-2.5 rounded-xl text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
-                    title="Record audio"
-                    >
-                    <Mic className="w-5 h-5" />
-                    </button>
-                    <button
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        audioInputRef.current?.click();
-                    }}
-                    className="p-2.5 rounded-xl text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    title="Upload audio"
-                    >
-                    <Upload className="w-5 h-5" />
-                    </button>
-                </div>
 
-                <input
-                  type="text"
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (input.trim() || audioFile) {
-                          handleSend(e as any);
-                      }
-                      }
-                  }}
-                  placeholder={audioFile ? "Add context about this audio..." : "Type a follow-up question..."}
-                  className="flex-grow bg-transparent text-base text-txt dark:text-txt-dark placeholder-stone-400 dark:placeholder-stone-500 outline-none min-w-0 px-2"
-                />
-                
+            <div className="flex-grow flex items-center gap-2 bg-stone-100 dark:bg-stone-800 rounded-2xl p-2 border-2 border-transparent focus-within:border-orange-500/20 focus-within:bg-white dark:focus-within:bg-black transition-all shadow-sm">
+              <div className="flex items-center gap-1 pr-2 border-r border-stone-200 dark:border-stone-700">
                 <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    startRecording();
+                  }}
+                  className="p-2.5 rounded-xl text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                  title="Record audio"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    audioInputRef.current?.click();
+                  }}
+                  className="p-2.5 rounded-xl text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  title="Upload audio"
+                >
+                  <Upload className="w-5 h-5" />
+                </button>
+              </div>
+
+              <input
+                ref={textInputRef}
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim() || audioFile) {
+                      handleSend(e as any);
+                    }
+                  }
+                }}
+                placeholder={audioFile ? "Add context about this audio..." : "Type a follow-up question..."}
+                className="flex-grow bg-transparent text-base text-txt dark:text-txt-dark placeholder-stone-400 dark:placeholder-stone-500 outline-none min-w-0 px-2"
+              />
+
+              <button
                 type="submit"
                 disabled={(!input.trim() && !audioFile) || isLoading}
                 className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md disabled:opacity-50 disabled:shadow-none transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-                >
+              >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                </button>
+              </button>
             </div>
           </form>
         </div>
