@@ -206,7 +206,7 @@ export const analyzeContent = async (
         
       } catch (error: any) {
         if (isRetryableError(error) && attempt < maxRetries - 1) {
-            const delay = 3000 * Math.pow(2, attempt); // Increased delay: 3s, 6s, 12s
+            const delay = 1000 * Math.pow(2, attempt); // Reduced delay: 1s, 2s, 4s for faster feedback
             console.warn(`Model ${modelName} issue, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
@@ -217,13 +217,14 @@ export const analyzeContent = async (
     throw new Error("Max retries exceeded");
   };
 
-  // Strategy: Try Pro -> Fallback to Flash -> Fallback to Offline Response
+  // Strategy: Try Flash (Fast) -> Fallback to Pro (Powerful) -> Fallback to Offline
+  // Changed priority to Flash for speed
   try {
-    return await generateWithModel("gemini-3-pro-preview");
+    return await generateWithModel("gemini-2.5-flash");
   } catch (error) {
-    console.warn("Gemini 3 Pro failed, falling back to Gemini 2.5 Flash:", error);
+    console.warn("Gemini 2.5 Flash failed, falling back to Gemini 3 Pro:", error);
     try {
-      return await generateWithModel("gemini-2.5-flash");
+      return await generateWithModel("gemini-3-pro-preview");
     } catch (fallbackError) {
       console.error("All models failed. Returning offline fallback.", fallbackError);
       return createOfflineAnalysis(text, files);
@@ -262,7 +263,7 @@ export const verifyScamWithSearch = async (text: string): Promise<SearchVerifica
             };
         } catch (error: any) {
             if (isRetryableError(error) && attempt < maxRetries - 1) {
-                const delay = 3000 * Math.pow(2, attempt);
+                const delay = 1000 * Math.pow(2, attempt);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -273,12 +274,12 @@ export const verifyScamWithSearch = async (text: string): Promise<SearchVerifica
     };
 
     try {
-        return await generateWithModel("gemini-3-pro-preview");
+        // Use Flash for search as well for better latency
+        return await generateWithModel("gemini-2.5-flash");
     } catch (e) {
-        console.warn("Search verification with Pro failed, trying Flash fallback (without search tools if needed, but trying standard first)...");
+        console.warn("Search verification with Flash failed, trying Pro fallback...");
         try {
-            // gemini-2.5-flash supports grounding usually, but if it fails, we return unavailable
-            return await generateWithModel("gemini-2.5-flash");
+            return await generateWithModel("gemini-3-pro-preview");
         } catch (e2) {
              return { text: "Online verification unavailable due to high traffic.", sources: [] };
         }
@@ -315,7 +316,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
             return base64Audio;
         } catch (error: any) {
             if (isRetryableError(error) && attempt < maxRetries - 1) {
-                const delay = 3000 * Math.pow(2, attempt);
+                const delay = 1000 * Math.pow(2, attempt);
                 console.warn(`Model overloaded in generateSpeech, retrying in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
@@ -363,7 +364,7 @@ export const askFollowUpQuestion = async (
                 return response.text;
             } catch (error: any) {
                 if (isRetryableError(error) && attempt < maxRetries - 1) {
-                    const delay = 3000 * Math.pow(2, attempt);
+                    const delay = 1000 * Math.pow(2, attempt);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
@@ -374,11 +375,11 @@ export const askFollowUpQuestion = async (
     };
 
     try {
-        return await generateWithModel("gemini-3-pro-preview");
+        return await generateWithModel("gemini-2.5-flash");
     } catch (e) {
-        console.warn("Follow-up with Pro failed, falling back to Flash");
+        console.warn("Follow-up with Flash failed, falling back to Pro");
         try {
-            return await generateWithModel("gemini-2.5-flash");
+            return await generateWithModel("gemini-3-pro-preview");
         } catch (e2) {
              return "I'm currently experiencing high traffic and cannot answer. Please try again in a few minutes.";
         }
@@ -462,7 +463,7 @@ JSON Format:
       return { items, warning: null, error: null };
     } catch (err: any) {
       if (isRetryableError(err) && attempt < maxRetries - 1) {
-        const delay = 3000 * Math.pow(2, attempt);
+        const delay = 1000 * Math.pow(2, attempt);
         console.warn(`Model overloaded in fetchScamNews, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
