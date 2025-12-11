@@ -1,7 +1,7 @@
-# 🛡️ ScamShield - AI-Powered Elder Fraud Prevention
+# 🛡️ ScamShield
 
 <div align="center">
-  <img src="https://i.imgur.com/8yv5jMv.png" alt="ScamShield Dashboard" width="800" />
+  <img src="./scamshield-cover.png" alt="ScamShield - Real-time AI analysis & protection" width="100%" style="border-radius: 20px;" />
   <br />
   <br />
   <a href="https://react.dev/">
@@ -15,35 +15,31 @@
   </a>
 </div>
 
-## 📖 About The Product
+## 🚨 Detect Scam: Real-time AI Analysis & Protection
 
-**ScamShield** is an accessible, AI-powered assistant designed specifically to help elderly users and their families identify and prevent fraud. 
+**ScamShield** is an AI-powered guardian designed to protect elderly users from sophisticated fraud. By combining real-time audio analysis, visual scanning, and location-based intelligence, it acts as a protective layer against modern scams.
 
-Scammers are becoming increasingly sophisticated, using AI voice cloning, complex scripts, and emotional manipulation. ScamShield acts as a protective layer, analyzing suspicious messages, images, and audio in real-time to provide clear, non-technical advice.
-
-It leverages **Google's Gemini 2.5 Flash and Gemini Live API** to listen, read, and reason through potential threats, offering safe next steps and reporting channels based on the user's location.
+It leverages **Google's Gemini 2.5 Flash and Gemini Live API** to listen, read, and reason through potential threats, providing clear, jargon-free advice.
 
 ## ✨ Key Features
 
-*   **🕵️ Multimodal Analysis:** Upload screenshots, paste text, or upload audio files of suspicious voicemails.
-*   **🎙️ Live Call Monitoring:** Real-time audio analysis using the Gemini Live API to detect scam patterns during phone calls.
-*   **⚡ Instant Risk Assessment:** Classifies content as High, Medium, or Low risk with simple, jargon-free explanations.
-*   **📍 Location-Based News:** Fetches recent scam reports specific to the user's city or region.
-*   **🗣️ Text-to-Speech:** Reads analysis results aloud for users with visual impairments.
-*   **📚 Scamopedia:** An educational library of common fraud schemes (Grandparent scams, Tech support fraud, etc.).
-*   **♿ Accessibility First:** Designed with high contrast, large typography, and simple navigation for senior users.
+### 📞 Monitor a Phone Call (Live API)
+*   **Real-time Protection**: Select "Monitor Phone Call" and answer incoming calls on speaker.
+*   **Instant Detection**: ScamShield listens to the conversation and detects scam patterns (urgency, threats, financial demands) instantly.
+*   **Live Transcription**: Visualizes the audio and transcripts for immediate review.
 
-## 📸 Screenshots
+### 💬 Message & Call Analysis
+*   **Risk Assessment**: Instantly classifies content as **High**, **Medium**, or **Low** risk.
+*   **Red Flags**: Identifies specific threats like "Pressure tactics," "Sensitive information requests," or "Impersonation."
+*   **Simple Summaries**: Explains *why* something is a scam in non-technical language.
 
-### 1. Dashboard & Analysis Input
-The main interface allows users to easily input text, upload files, or start a live monitor session.
-![Dashboard](https://i.imgur.com/8yv5jMv.png)
+### 📍 Local Scam Radar
+*   **Location-Based Alerts**: Tracks recent scam reports in your specific City, Region, or Country.
+*   **Community Awareness**: Stay ahead of trending fraud schemes in your area.
 
-### 2. Detailed Analysis Results
-Clear, color-coded risk levels with specific "Red Flags" and safe next steps.
-<img src="https://i.imgur.com/your-second-screenshot-url.png" alt="Analysis Result" width="800" />
-
-*(Note: Replace the URL above with your actual analysis screenshot)*
+### 🛡️ Next Steps & Safe Actions
+*   **Actionable Advice**: Clear buttons to "Report Cybercrime" or "Block Number".
+*   **Safety Scripts**: Provides exact sentences (e.g., *"I do not accept unknown numbers..."*) to read if the scammer calls back.
 
 ## 🚀 How to Run the Project
 
@@ -72,7 +68,6 @@ Clear, color-coded risk levels with specific "Red Flags" and safe next steps.
     ```env
     API_KEY=your_actual_api_key_here
     ```
-    *(Note: Ensure your build tool is configured to inject `process.env.API_KEY` or adapt the service code to use `import.meta.env.VITE_API_KEY` if using standard Vite)*.
 
 4.  **Run the development server:**
     ```bash
