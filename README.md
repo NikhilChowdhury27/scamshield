@@ -2,7 +2,7 @@
 ## Real-time AI Analysis & Protection Against Phone Scams
 
 <div align="center">
-  <img src="./scamshield-cover.png" alt="ScamShield - Real-time AI analysis & protection" width="100%" style="border-radius: 20px;" />
+  <img width="2400" height="1792" alt="image" src="https://github.com/user-attachments/assets/a047e1c7-c031-4d1c-a0ab-c5198f8b27c8" />
   <br />
   <br />
   <a href="https://react.dev/">
