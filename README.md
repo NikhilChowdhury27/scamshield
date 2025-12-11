@@ -42,7 +42,7 @@
 
 ## 💡 The Problem We're Solving
 
-**Impact (40%):** Phone scams cost victims billions annually, with elderly users disproportionately affected. ScamShield addresses this by providing:
+**Impact:** Phone scams cost victims billions annually, with elderly users disproportionately affected. ScamShield addresses this by providing:
 - **Real-time protection** during live phone calls
 - **Accessible, jargon-free explanations** for non-technical users
 - **Location-aware scam intelligence** to stay ahead of local fraud patterns
@@ -122,7 +122,7 @@ ScamShield leverages **Gemini 3 Pro's native multimodality** to analyze multiple
 
 ## 🎨 Creativity & Innovation
 
-**Creativity (20%):** ScamShield demonstrates novel uses of Gemini 3 Pro:
+**Creativity:** ScamShield demonstrates novel uses of Gemini 3 Pro:
 
 1. **Real-time Multimodal Analysis:** First application to combine live audio transcription with simultaneous scam detection
 2. **Context-Aware Follow-ups:** Maintains conversation context across multiple interactions
