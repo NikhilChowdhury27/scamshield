@@ -30,6 +30,8 @@
 
 **ScamShield** is an AI-powered guardian that protects vulnerable users from phone scams using **Gemini 3 Pro's advanced reasoning and native multimodality**. Built for the [Google DeepMind - Vibe Code with Gemini 3 Pro Hackathon](https://www.kaggle.com/competitions/gemini-3), it demonstrates how cutting-edge AI can solve real-world problems affecting millions globally.
 
+**🌐 Try it live:** [https://scamshield-120207655828.us-west1.run.app/](https://scamshield-120207655828.us-west1.run.app/)
+
 ### 🏆 Hackathon Submission
 
 **Track:** Overall Track  
@@ -180,13 +182,6 @@ ScamShield leverages **Gemini 3 Pro's native multimodality** to analyze multiple
    Visit `http://localhost:5173` in your browser.
 
 ---
-
-## 📝 Submission Requirements
-
-- ✅ **Live Demo:** [https://scamshield-120207655828.us-west1.run.app/](https://scamshield-120207655828.us-west1.run.app/)
-- ✅ **Video Demo:** [Link to be added]
-- ✅ **Public AI Studio App Link:** [Link to be added]
-- ✅ **Kaggle Writeup:** [Link to be added]
 
 ---
 
