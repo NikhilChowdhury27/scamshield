@@ -775,7 +775,7 @@ const CheckMessageView: React.FC = () => {
 
   if (analysis) {
     return (
-      <div className="space-y-4 animate-slide-up pb-4">
+      <div className="space-y-4 animate-slide-up pb-24 md:pb-4">
         <button
           onClick={handleReset}
           className="flex items-center gap-2 text-stone-500 hover:text-orange-600 dark:text-stone-400 dark:hover:text-orange-400 transition-colors font-medium group"
@@ -798,7 +798,7 @@ const CheckMessageView: React.FC = () => {
   // Full Screen Live Monitor
   if (isRecordingMode) {
     return (
-      <div className="fixed inset-0 md:left-72 z-50 bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
+      <div className="fixed inset-0 md:left-72 z-[100] bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
         <div className="spline-container absolute top-0 left-0 w-full h-full -z-10">
           <iframe
             src="https://my.spline.design/aidatamodelinteraction-mdTL3FktFVHgDvFr5TKtnYDV"
@@ -840,7 +840,7 @@ const CheckMessageView: React.FC = () => {
 
   // --- Main Render: Unified Dashboard ---
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 md:pb-12">
       {/* Hero Section */}
       <div className="text-center animate-slide-up">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-semibold mb-6 border border-orange-200/50 dark:border-orange-700/30">

@@ -532,7 +532,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   // Show recording interface - Overlay Mode (Sticky on top of everything)
   if (isRecordingMode) {
     return (
-      <div className="fixed inset-0 md:left-72 z-50 bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
+      <div className="fixed inset-0 md:left-72 z-[100] bg-canvas dark:bg-black flex flex-col items-center p-4 animate-fade-in">
         <button
           onClick={cancelRecording}
           className="absolute top-10 right-6 p-3 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition-all backdrop-blur-sm border border-stone-200 dark:border-white/20 z-50"
@@ -576,7 +576,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
   return (
     <>
       {/* 1. Messages Section: Renders in the normal document flow (not fixed) */}
-      <div className="w-full pb-16 animate-slide-up grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="w-full pb-48 md:pb-24 animate-slide-up grid grid-cols-1 lg:grid-cols-4 gap-6">
 
         <div className="lg:col-span-3 space-y-6">
           {messages.map((msg, i) => (
@@ -615,7 +615,7 @@ const FollowUpChat: React.FC<FollowUpChatProps> = ({ analysis }) => {
 
       {/* 2. Input Section: Sticky at the bottom */}
       <div
-        className="fixed bottom-0 left-0 right-0 md:left-72 z-40 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-t border-border dark:border-border-dark p-4 md:p-6 cursor-text"
+        className="fixed bottom-20 md:bottom-0 left-0 right-0 md:left-72 z-[60] bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-t border-border dark:border-border-dark p-4 md:p-6 cursor-text"
         onClick={(e) => {
           // Verify we aren't clicking on a button or an interactive element
           if (e.target instanceof HTMLElement && (

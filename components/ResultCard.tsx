@@ -244,7 +244,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ analysis, searchResult, timesta
                 {/* Middle: Risk Info */}
                 <div className="flex items-center gap-3">
                   <div className={`p-1.5 rounded-lg ${styles.iconBg} shadow-sm`}>
-                    {React.cloneElement(styles.icon as React.ReactElement, { className: 'w-5 h-5 text-white' })}
+                    {React.cloneElement(styles.icon as React.ReactElement<any>, { className: 'w-5 h-5 text-white' })}
                   </div>
                   <div>
                     <h3 className={`text-base font-bold leading-none ${styles.text}`}>{styles.title}</h3>

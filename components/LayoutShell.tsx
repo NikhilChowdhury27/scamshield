@@ -30,9 +30,9 @@ const LayoutShell: React.FC<LayoutShellProps> = ({ currentView, onNavigate, chil
       {/* Main content area scrolls independently */}
       <main
         id="main-scroll-container"
-        className={`flex-1 w-full h-full overflow-y-auto relative z-10 ${isExtensionMode ? 'p-2' : ''}`}
+        className={`flex-1 w-full h-full overflow-y-auto relative ${isExtensionMode ? 'p-2' : ''}`}
       >
-        <div className={`mx-auto ${isExtensionMode ? 'p-2' : 'pt-24 px-4 md:p-6 lg:p-8 pb-24 max-w-6xl'}`}>
+        <div className={`mx-auto ${isExtensionMode ? 'p-2' : 'pt-24 px-4 md:p-6 lg:p-8 pb-40 md:pb-24 max-w-6xl'}`}>
           {children}
         </div>
       </main>
